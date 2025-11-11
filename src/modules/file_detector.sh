@@ -19,7 +19,7 @@ detect_file_type() {
     # 根据扩展名判断文件类型
     case "$extension" in
         # Office文档
-        doc|docx|xls|xlsx|ppt|pptx)
+        doc|docx|xls|xlsx|ppt)
             echo "office"
             ;;
         # PowerPoint文档
