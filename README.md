@@ -9,6 +9,7 @@ Everything2MD 是一个强大的文档转换工具，可以将各种格式的文
 - 模块化设计，易于扩展和维护
 - 配置文件支持，可自定义转换参数
 - 详细的日志记录和错误处理机制
+- 提供Windows和macOS平台的启动器应用
 
 ## 支持的文件格式
 
@@ -26,6 +27,20 @@ Everything2MD 是一个强大的文档转换工具，可以将各种格式的文
 - pptx2md (用于 PowerPoint 文档转换)
 
 ## 安装说明
+
+### 方法一：使用预编译的启动器应用（推荐）
+
+#### Windows平台
+1. 从发布页面下载Everything2MD-Windows-*.zip文件
+2. 解压到任意目录
+3. 运行`everything2md.bat`即可使用
+
+#### macOS平台
+1. 从发布页面下载Everything2MD-macOS-*.dmg文件
+2. 挂载DMG并拖拽Everything2MD.app到Applications文件夹
+3. 在终端中运行`/Applications/Everything2MD.app/Contents/MacOS/everything2md`即可使用
+
+### 方法二：从源码运行
 
 1. 确保系统已安装 Bash 4.0 或更高版本：
    ```bash
@@ -54,7 +69,27 @@ Everything2MD 是一个强大的文档转换工具，可以将各种格式的文
 
 ## 使用方法
 
-### 基本用法
+### 方法一：使用启动器应用
+
+#### Windows平台
+```cmd
+# 转换单个文件
+everything2md.bat -i input.docx -o output.md
+
+# 批量处理目录
+everything2md.bat -i C:\path\to\input\dir -o C:\path\to\output\dir -b
+```
+
+#### macOS平台
+```bash
+# 转换单个文件
+/Applications/Everything2MD.app/Contents/MacOS/everything2md -i input.docx -o output.md
+
+# 批量处理目录
+/Applications/Everything2MD.app/Contents/MacOS/everything2md -i /path/to/input/dir -o /path/to/output/dir -b
+```
+
+### 方法二：从源码运行
 
 ```bash
 # 转换单个文件
@@ -86,7 +121,7 @@ log_level=INFO
 
 ```
 Everything2MD/
-├── src/
+├── src/                     # 源代码目录
 │   ├── main.sh              # 主程序入口
 │   └── modules/             # 功能模块
 │       ├── argument_parser.sh      # 参数解析模块
@@ -100,6 +135,10 @@ Everything2MD/
 │       ├── logger.sh               # 日志记录模块
 │       ├── pandoc_converter.sh     # Pandoc转换模块
 │       └── pptx2md_converter.sh    # pptx2md转换模块
+├── build/                   # 构建目录
+│   ├── scripts/             # 构建脚本
+│   ├── dist/                # 发行版输出目录
+│   └── temp/                # 临时文件目录
 └── docs/                    # 项目文档
 ```
 
@@ -110,6 +149,24 @@ Everything2MD/
 1. 在 `src/modules/` 目录下创建新的转换模块
 2. 实现文件类型检测逻辑
 3. 在主程序中集成新模块
+
+### 构建和发行
+
+本项目支持构建Windows和macOS平台的发行版：
+
+#### Windows平台构建
+```bash
+# 在Windows环境中运行
+build/scripts/windows_packager.bat
+```
+
+#### macOS平台构建
+```bash
+# 在macOS环境中运行
+build/scripts/macos_packager.sh
+```
+
+构建产物将输出到 `build/dist/` 目录。
 
 ### 代码规范
 
