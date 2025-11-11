@@ -1,0 +1,40 @@
+name: Build macOS Application
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up environment
+      run: |
+        echo "Setting up build environment"
+        echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+        
+    - name: Make build script executable
+      run: chmod +x build/build.sh
+
+    - name: Build macOS application
+      run: |
+        cd build
+        ./build.sh -p macos
+
+    - name: List build output
+      run: |
+        echo "Build output directory contents:"
+        ls -la build/dist/
+        echo "macOS directory contents:"
+        ls -la build/dist/macos/
+
+    - name: Upload macOS artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: everything2md-macos
+        path: build/dist/macos/
