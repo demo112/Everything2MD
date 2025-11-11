@@ -36,72 +36,76 @@
 #### 输入契约
 - 前置依赖: 参数解析器
 - 输入数据: 文件路径
-- 环境依赖: 无特殊要求
+- 环境依赖: 文件系统访问权限、file命令可用
 
 #### 输出契约
-- 输出数据: 文件类型标识
-- 交付物: 文件类型检测模块代码
+- 输出数据: 文件类型标识（office/ppt/pptx/text/pdf/unknown）
+- 交付物: src/modules/file_detector.sh
 - 验收标准: 
   - 正确识别所有支持的文件类型
   - 对不支持的格式返回适当的错误信息
   - 处理文件扩展名大小写不敏感
+  - 当扩展名无法确定时使用file命令检测MIME类型
+  - 精确区分office、ppt、pptx类型
 
 #### 实现约束
 - 技术栈: Bash脚本
-- 接口规范: 符合架构设计文档中的接口定义
+- 接口规范: detect_file_type 函数
 - 质量要求: 代码简洁、易于维护
-
-#### 依赖关系
-- 后置任务: LibreOffice转换器、pptx2md转换器、直接复制模块
-- 并行任务: 依赖检查系统
 
 ### 任务3: LibreOffice转换器实现
 
 #### 输入契约
 - 前置依赖: 文件类型检测
 - 输入数据: Office文档路径、输出目录
-- 环境依赖: LibreOffice >= 7.0
+- 环境依赖: LibreOffice >= 7.0、临时文件系统权限
 
 #### 输出契约
-- 输出数据: PDF文件路径
-- 交付物: LibreOffice转换器模块代码
+- 输出数据: HTML文件路径
+- 交付物: src/modules/libreoffice_converter.sh
 - 验收标准: 
-  - 成功调用LibreOffice将文档转换为PDF
+  - 成功调用LibreOffice将文档转换为HTML
   - 正确处理转换异常
-  - 验证输出文件的有效性
+  - 支持中文文件名安全处理
+  - 正确处理临时文件
 
 #### 实现约束
-- 技术栈: Bash脚本
-- 接口规范: 符合架构设计文档中的接口定义
-- 质量要求: 代码简洁、易于维护
+- 技术栈: Bash脚本 + LibreOffice CLI
+- 接口规范: convert_office_to_md 函数
+- 质量要求:
+  - 代码简洁、易于维护
+  - 错误处理完善
+  - 支持批量处理
+  - 中文文件名安全处理（创建安全临时路径）
+  - 改进HTML文件查找逻辑（多种可能模式）
 
 #### 依赖关系
 - 后置任务: Pandoc转换器
 - 并行任务: pptx2md转换器、直接复制模块
 
-### 任务4: pptx2md转换器实现
+### 任务4: PPT转换器实现
 
 #### 输入契约
 - 前置依赖: 文件类型检测
-- 输入数据: PPTX文件路径、输出路径
-- 环境依赖: pptx2md工具
+- 输入数据: PPT文件路径、输出路径
+- 环境依赖: LibreOffice命令行工具
 
 #### 输出契约
 - 输出数据: Markdown文件路径
-- 交付物: pptx2md转换器模块代码
+- 交付物: src/modules/ppt_converter.sh
 - 验收标准: 
-  - 成功调用pptx2md库进行转换
+  - 成功调用LibreOffice将PPT转换为PDF再转为Markdown
   - 正确处理转换异常
   - 验证输出文件的有效性
 
 #### 实现约束
-- 技术栈: Bash脚本
-- 接口规范: 符合架构设计文档中的接口定义
+- 技术栈: Bash脚本 + LibreOffice CLI
+- 接口规范: convert_ppt_to_md 函数
 - 质量要求: 代码简洁、易于维护
 
 #### 依赖关系
-- 后置任务: 无直接后置任务
-- 并行任务: LibreOffice转换器、直接复制模块
+- 后置任务: Pandoc转换器
+- 并行任务: LibreOffice转换器、pptx2md转换器、直接复制模块
 
 ### 任务5: Pandoc转换器实现
 

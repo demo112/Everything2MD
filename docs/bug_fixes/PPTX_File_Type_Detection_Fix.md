@@ -12,7 +12,14 @@
 
 通过代码审查发现以下问题：
 
-1. 在`src/modules/file_detector.sh`文件中，PPTX扩展名在case语句中首先匹配到"office"类型：
+1. 在`src/modules/file_detector.sh`文件中，PPTX扩展名的 case 语句顺序存在问题，导致 PPTX 文件被错误地识别为 "office" 类型，而不是单独的 "pptx" 类型。
+
+具体问题在于 case 语句的匹配顺序：
+- 首先匹配 "office" 类型（包含 doc/docx/xls/xlsx/ppt/pptx）
+- 然后才匹配 "pptx" 类型
+- 由于 case 语句的短路特性，PPTX 文件会首先匹配到 "office" 分支，永远不会到达 "pptx" 分支
+
+示例代码：
    ```bash
    # Office文档
    doc|docx|xls|xlsx|ppt|pptx)
@@ -23,7 +30,6 @@
        echo "pptx"
        ;;
    ```
-   由于bash的case语句按顺序匹配，PPTX扩展名永远不会到达第二个匹配分支。
 
 2. 在`src/main.sh`文件中，虽然有处理PPTX文件类型的代码，但由于文件类型检测错误，该代码永远不会被执行。
 
@@ -65,11 +71,47 @@ case "$file_type" in
 esac
 ```
 
-## 验证测试
+## 4. 验证测试
 
-1. 创建测试脚本验证文件类型检测功能
-2. 确认PPTX文件被正确识别为"pptx"类型
-3. 验证处理流程能够正确调用`convert_pptx_to_md`函数
+### 4.1 单元测试
+
+1. **文件类型检测单元测试**:
+   ```bash
+   # 运行单元测试
+   make unit-test
+   
+   # 验证文件类型检测功能
+   # 测试用例覆盖各种文件扩展名
+   ```
+
+### 4.2 集成测试
+
+1. **PPTX文件转换测试**:
+   ```bash
+   # 使用测试fixture
+   cp test/fixtures/sample.pptx test_output.pptx
+   
+   # 运行转换
+   ./everything2md.sh test_output.pptx
+   
+   # 验证输出文件存在
+   ls -la test_output.md
+   
+   # 验证内容不为空
+   [ -s test_output.md ] && echo "转换成功" || echo "转换失败"
+   ```
+
+2. **文件类型检测验证**:
+   ```bash
+   # 直接调用文件检测模块
+   source src/modules/file_detector.sh
+   detect_file_type "test.pptx"
+   # 预期输出: "pptx"
+   
+   # 验证不再返回"office"
+   result=$(detect_file_type "test.pptx")
+   [ "$result" = "pptx" ] && echo "修复成功" || echo "修复失败"
+   ```
 
 ## 后续建议
 

@@ -45,13 +45,69 @@
 
 ## 验证测试
 
-我们创建了测试脚本验证修复效果，测试包括：
+### 4.1 单元测试
 
-1. 创建包含中文文件名的测试文件
-2. 使用Everything2MD处理该文件
-3. 验证输出文件是否正确生成
+1. **LibreOffice转换器单元测试**:
+   ```bash
+   # 运行单元测试
+   make unit-test
+   
+   # 验证中文文件名处理功能
+   # 测试用例覆盖各种中文字符和特殊字符
+   ```
 
-测试结果表明，修复后的代码能够正确处理包含中文文件名的文档。
+### 4.2 集成测试
+
+1. **中文文件名转换测试**:
+   ```bash
+   # 创建包含中文文件名的测试文件
+   cp test/fixtures/sample.docx "测试文档.docx"
+   
+   # 运行转换
+   ./everything2md.sh "测试文档.docx"
+   
+   # 验证输出文件存在
+   ls -la "测试文档.md"
+   
+   # 验证内容不为空
+   [ -s "测试文档.md" ] && echo "转换成功" || echo "转换失败"
+   ```
+
+2. **特殊字符文件名测试**:
+   ```bash
+   # 测试包含空格和特殊字符的文件名
+   cp test/fixtures/sample.docx "测试 文档 (2024).docx"
+   
+   # 运行转换
+   ./everything2md.sh "测试 文档 (2024).docx"
+   
+   # 验证输出
+   ls -la "测试 文档 (2024).md"
+   ```
+
+3. **错误处理测试**:
+   ```bash
+   # 测试不存在的文件
+   ./everything2md.sh "不存在的中文文件.docx"
+   
+   # 验证错误信息
+   # 应该显示清晰的错误提示，而不是HTML文件不存在错误
+   ```
+
+4. **临时文件清理测试**:
+   ```bash
+   # 转换前记录临时目录状态
+   temp_count_before=$(ls /tmp/everything2md_* 2>/dev/null | wc -l)
+   
+   # 运行转换
+   ./everything2md.sh "测试文档.docx"
+   
+   # 转换后检查临时文件是否被清理
+   temp_count_after=$(ls /tmp/everything2md_* 2>/dev/null | wc -l)
+   
+   # 验证临时文件被正确清理
+   [ $temp_count_after -le $temp_count_before ] && echo "清理成功" || echo "清理失败"
+   ```
 
 ## 后续建议
 
