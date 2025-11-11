@@ -11,7 +11,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up environment
       run: |
@@ -34,7 +34,7 @@ jobs:
         ls -la build/dist/macos/
 
     - name: Upload macOS artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: everything2md-macos
         path: build/dist/macos/
