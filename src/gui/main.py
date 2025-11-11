@@ -90,9 +90,9 @@ class Everything2MDGUI:
             initialdir=initial_dir,
             filetypes=[
                 ("所有文件", "*.*"),
-                ("Word文档", "*.docx"),
+                ("Word文档", "*.docx *.doc"),
                 ("Excel文档", "*.xlsx"),
-                ("PowerPoint文档", "*.pptx"),
+                ("PowerPoint文档", "*.pptx *.ppt"),
                 ("文本文件", "*.txt"),
                 ("PDF文件", "*.pdf")
             ]
@@ -157,7 +157,15 @@ class Everything2MDGUI:
             
             # 添加参数
             cmd.extend(["-i", self.input_path.get()])
-            cmd.extend(["-o", self.output_path.get()])
+            
+            # 如果输出路径是一个目录，则构建完整的输出文件路径
+            output_path = self.output_path.get()
+            if os.path.isdir(output_path):
+                input_filename = os.path.basename(self.input_path.get())
+                output_filename = os.path.splitext(input_filename)[0] + ".md"
+                output_path = os.path.join(output_path, output_filename)
+            
+            cmd.extend(["-o", output_path])
             
             if self.log_level.get() != "INFO":
                 cmd.extend(["-l", self.log_level.get()])

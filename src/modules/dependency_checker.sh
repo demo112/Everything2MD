@@ -4,29 +4,31 @@
 
 # 检查所有依赖是否已安装
 check_dependencies() {
-    local missing_deps=()
-    
-    # 检查LibreOffice
+    # 检查LibreOffice（必需）
     if ! command -v libreoffice >/dev/null 2>&1; then
-        missing_deps+=("LibreOffice")
-    fi
-    
-    # 检查Pandoc
-    if ! command -v pandoc >/dev/null 2>&1; then
-        missing_deps+=("Pandoc")
-    fi
-    
-    # 检查pptx2md
-    if ! command -v pptx2md >/dev/null 2>&1; then
-        missing_deps+=("pptx2md")
-    fi
-    
-    # 如果有缺失的依赖，报错并退出
-    if [[ ${#missing_deps[@]} -gt 0 ]]; then
-        handle_error "以下依赖未安装: ${missing_deps[*]}"
-        log_error "请安装缺失的依赖后再运行程序"
+        handle_error "LibreOffice未安装，这是必需的依赖"
+        log_error "请安装LibreOffice后再运行程序"
         exit 1
     fi
     
-    log_info "所有依赖检查通过"
+    # 检查可选依赖并记录日志
+    if ! command -v pandoc >/dev/null 2>&1; then
+        log_warn "Pandoc未安装，将使用替代方案进行转换"
+    else
+        log_info "Pandoc已安装"
+    fi
+    
+    if ! command -v pptx2md >/dev/null 2>&1; then
+        log_warn "pptx2md未安装，PPTX文件转换可能受限"
+    else
+        log_info "pptx2md已安装"
+    fi
+    
+    if ! command -v pdftotext >/dev/null 2>&1; then
+        log_warn "pdftotext未安装，将使用替代方案进行PDF文本提取"
+    else
+        log_info "pdftotext已安装"
+    fi
+    
+    log_info "依赖检查完成"
 }

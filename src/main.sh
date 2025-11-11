@@ -2,8 +2,8 @@
 
 # Everything2MD - 将各种文档格式转换为Markdown
 # 作者: 
-# 版本: 1.0
-# 日期: 
+# 版本: 1.1
+# 日期: 2025-11-11 
 
 # 设置脚本在遇到错误时立即退出
 set -e
@@ -15,6 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/modules/argument_parser.sh"
 source "$SCRIPT_DIR/modules/file_detector.sh"
 source "$SCRIPT_DIR/modules/libreoffice_converter.sh"
+source "$SCRIPT_DIR/modules/ppt_converter.sh"
 source "$SCRIPT_DIR/modules/pptx2md_converter.sh"
 source "$SCRIPT_DIR/modules/pandoc_converter.sh"
 source "$SCRIPT_DIR/modules/file_copier.sh"
@@ -54,8 +55,15 @@ process_single_file() {
         "office")
             convert_office_to_md "$input_file" "$output_path"
             ;;
+        "ppt")
+            convert_ppt_to_md "$input_file" "$output_path"
+            ;;
         "pptx")
             convert_pptx_to_md "$input_file" "$output_path"
+            ;;
+        "pdf")
+            # 先用LibreOffice将PDF转换为HTML，再用Pandoc转换为Markdown
+            convert_office_to_md "$input_file" "$output_path"
             ;;
         "text")
             copy_text_file "$input_file" "$output_path"

@@ -28,8 +28,13 @@ convert_pptx_to_md() {
     # 注意：pptx2md通常会在指定目录下创建一个与PPTX文件同名的目录，并在其中生成Markdown文件
     local output_dir=$(dirname "$output_path")
     local base_name=$(basename "${input_file%.*}")
+    local image_dir="$output_dir/img"
     
-    pptx2md "$input_file" -o "$output_dir"
+    # 创建图片目录
+    mkdir -p "$image_dir"
+    
+    # 直接指定输出文件路径，而不是目录
+    pptx2md "$input_file" -o "$output_path" -i "$image_dir"
     
     # 检查转换是否成功
     if [[ $? -ne 0 ]]; then
@@ -37,23 +42,10 @@ convert_pptx_to_md() {
         return 1
     fi
     
-    # 查找生成的Markdown文件并移动到指定位置
-    local generated_md="$output_dir/${base_name}.md"
-    if [[ -f "$generated_md" ]]; then
-        mv "$generated_md" "$output_path"
-    else
-        # 如果没有找到预期的文件，尝试查找其他可能的Markdown文件
-        local md_files=($(find "$output_dir" -name "*.md" -type f))
-        if [[ ${#md_files[@]} -gt 0 ]]; then
-            mv "${md_files[0]}" "$output_path"
-            # 删除其他可能的Markdown文件
-            for ((i=1; i<${#md_files[@]}; i++)); do
-                rm -f "${md_files[i]}"
-            done
-        else
-            handle_error "pptx2md转换后未找到生成的Markdown文件"
-            return 1
-        fi
+    # 检查输出文件是否存在
+    if [[ ! -f "$output_path" ]]; then
+        handle_error "pptx2md转换后未找到生成的Markdown文件: $output_path"
+        return 1
     fi
     
     log_info "成功转换PPTX文件: $input_file -> $output_path"

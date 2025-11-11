@@ -18,11 +18,14 @@ detect_file_type() {
     
     # 根据扩展名判断文件类型
     case "$extension" in
-        # Office文档
-        doc|docx|xls|xlsx|ppt)
+        # Word和Excel文档
+        doc|docx|xls|xlsx)
             echo "office"
             ;;
         # PowerPoint文档
+        ppt)
+            echo "ppt"
+            ;;
         pptx)
             echo "pptx"
             ;;
@@ -44,6 +47,9 @@ detect_file_type() {
                         ;;
                     application/vnd.ms-powerpoint*|application/vnd.openxmlformats-officedocument.presentationml*)
                         echo "pptx"
+                        ;;
+                    application/pdf)
+                        echo "pdf"
                         ;;
                     *)
                         echo "unknown"
