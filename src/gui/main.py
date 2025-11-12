@@ -10,19 +10,28 @@ import sys
 import os
 import threading
 import queue
+import json
 
 class Everything2MDGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Everything2MD - 文档转换工具")
-        self.root.geometry("600x400")
+        self.root.geometry("700x500")
         
         # 初始化变量
         self.input_path = tk.StringVar()
         self.output_path = tk.StringVar()
         self.log_level = tk.StringVar(value="INFO")
+        self.output_format = tk.StringVar(value="markdown")
+        self.batch_processing = tk.BooleanVar(value=True)
+        self.max_parallel_jobs = tk.StringVar(value="2")
+        self.file_filters = tk.StringVar(value="docx,pptx,pdf,txt")
+        
         self.is_converting = False
         self.process = None
+        
+        # 加载配置
+        self.load_config()
         
         # 创建界面
         self.create_widgets()
@@ -48,9 +57,34 @@ class Everything2MDGUI:
         ttk.Button(main_frame, text="浏览...", command=self.browse_output).grid(row=1, column=2, pady=2)
         
         # 参数配置
-        ttk.Label(main_frame, text="日志级别:").grid(row=2, column=0, sticky=tk.W, pady=2)
-        log_level_combo = ttk.Combobox(main_frame, textvariable=self.log_level, values=["DEBUG", "INFO", "WARNING", "ERROR"], state="readonly")
-        log_level_combo.grid(row=2, column=1, sticky=tk.W, pady=2)
+        config_frame = ttk.LabelFrame(main_frame, text="转换配置", padding="5")
+        config_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        config_frame.columnconfigure(1, weight=1)
+        
+        # 日志级别
+        ttk.Label(config_frame, text="日志级别:").grid(row=0, column=0, sticky=tk.W, pady=2)
+        log_level_combo = ttk.Combobox(config_frame, textvariable=self.log_level, values=["DEBUG", "INFO", "WARNING", "ERROR"], state="readonly")
+        log_level_combo.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=2, padx=(0, 5))
+        
+        # 输出格式
+        ttk.Label(config_frame, text="输出格式:").grid(row=0, column=2, sticky=tk.W, pady=2)
+        output_format_combo = ttk.Combobox(config_frame, textvariable=self.output_format, values=["markdown", "html", "txt"], state="readonly")
+        output_format_combo.grid(row=0, column=3, sticky=(tk.W, tk.E), pady=2)
+        
+        # 批量处理
+        ttk.Label(config_frame, text="批量处理:").grid(row=1, column=0, sticky=tk.W, pady=2)
+        batch_checkbox = ttk.Checkbutton(config_frame, text="启用", variable=self.batch_processing)
+        batch_checkbox.grid(row=1, column=1, sticky=tk.W, pady=2)
+        
+        # 并行任务数
+        ttk.Label(config_frame, text="并行任务数:").grid(row=1, column=2, sticky=tk.W, pady=2)
+        max_jobs_spinbox = ttk.Spinbox(config_frame, textvariable=self.max_parallel_jobs, from_=1, to=16, width=5)
+        max_jobs_spinbox.grid(row=1, column=3, sticky=tk.W, pady=2)
+        
+        # 文件过滤器
+        ttk.Label(config_frame, text="文件过滤器:").grid(row=2, column=0, sticky=tk.W, pady=2)
+        file_filters_entry = ttk.Entry(config_frame, textvariable=self.file_filters)
+        file_filters_entry.grid(row=2, column=1, columnspan=3, sticky=(tk.W, tk.E), pady=2)
         
         # 操作按钮
         button_frame = ttk.Frame(main_frame)
@@ -61,6 +95,9 @@ class Everything2MDGUI:
         
         self.cancel_button = ttk.Button(button_frame, text="取消", command=self.cancel_conversion, state=tk.DISABLED)
         self.cancel_button.pack(side=tk.LEFT, padx=5)
+        
+        self.settings_button = ttk.Button(button_frame, text="配置管理", command=self.open_settings)
+        self.settings_button.pack(side=tk.LEFT, padx=5)
         
         # 进度显示
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
@@ -115,6 +152,289 @@ class Everything2MDGUI:
         
         if path:
             self.output_path.set(path)
+            
+    def load_config(self):
+        """从配置文件加载配置到GUI"""
+        try:
+            cmd = [
+                "bash", 
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "src", "modules", "config_manager.sh")
+            ]
+            
+            # 加载日志级别
+            result = subprocess.run(cmd + ["get_config", "log_level"], capture_output=True, text=True, check=True)
+            if result.stdout.strip():
+                self.log_level.set(result.stdout.strip())
+                
+            # 加载输出格式
+            result = subprocess.run(cmd + ["get_config", "output_format"], capture_output=True, text=True, check=True)
+            if result.stdout.strip():
+                self.output_format.set(result.stdout.strip())
+                
+            # 加载批量处理设置
+            result = subprocess.run(cmd + ["get_config", "batch_processing_enabled"], capture_output=True, text=True, check=True)
+            if result.stdout.strip():
+                self.batch_processing.set(result.stdout.strip().lower() == "true")
+                
+            # 加载并行任务数
+            result = subprocess.run(cmd + ["get_config", "max_parallel_jobs"], capture_output=True, text=True, check=True)
+            if result.stdout.strip():
+                self.max_parallel_jobs.set(result.stdout.strip())
+                
+            # 加载文件过滤器
+            result = subprocess.run(cmd + ["get_config", "file_filters"], capture_output=True, text=True, check=True)
+            if result.stdout.strip():
+                # 将JSON数组转换为逗号分隔的字符串
+                filters_str = result.stdout.strip()
+                if filters_str.startswith('[') and filters_str.endswith(']'):
+                    filters = json.loads(filters_str)
+                    self.file_filters.set(','.join(filters))
+                else:
+                    self.file_filters.set(filters_str)
+                    
+            print("配置加载成功")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            print(f"配置加载失败: {e}")
+            messagebox.showwarning("警告", "配置文件不存在或格式错误，将使用默认配置")
+            
+            # 使用默认配置
+            self.log_level.set("INFO")
+            self.output_format.set("markdown")
+            self.batch_processing.set(True)
+            self.max_parallel_jobs.set("2")
+            self.file_filters.set("docx,pptx,pdf,txt")
+            return False
+                
+    def save_config(self):
+        """保存配置文件"""
+        try:
+            # 构建配置命令
+            cmd = [
+                "bash", 
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "src", "modules", "config_manager.sh")
+            ]
+            
+            # 设置配置值
+            subprocess.run(cmd + ["set_config", "log_level", self.log_level.get()], check=True)
+            subprocess.run(cmd + ["set_config", "output_format", self.output_format.get()], check=True)
+            subprocess.run(cmd + ["set_config", "batch_processing_enabled", 
+                                "true" if self.batch_processing.get() else "false"], check=True)
+            subprocess.run(cmd + ["set_config", "max_parallel_jobs", self.max_parallel_jobs.get()], check=True)
+            
+            # 保存文件过滤器
+            filters = [f.strip() for f in self.file_filters.get().split(',') if f.strip()]
+            subprocess.run(cmd + ["set_config", "file_filters", ",".join(filters)], check=True)
+            
+            # 保存路径设置 - 使用配置管理器命令
+            subprocess.run(cmd + ["set_config", "last_input_path", self.input_path.get()], check=True)
+            subprocess.run(cmd + ["set_config", "last_output_path", self.output_path.get()], check=True)
+            
+            # 保存所有配置
+            subprocess.run(cmd + ["save_config"], check=True)
+            
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            messagebox.showerror("错误", f"配置保存失败: {e}")
+            return False
+        except Exception as e:
+            messagebox.showerror("错误", f"配置保存失败: {e}")
+            return False
+            
+    def open_settings(self):
+        """打开配置管理窗口"""
+        settings_window = tk.Toplevel(self.root)
+        settings_window.title("配置管理")
+        settings_window.geometry("500x400")
+        settings_window.resizable(False, False)
+        
+        # 设置窗口居中
+        settings_window.transient(self.root)
+        settings_window.grab_set()
+        
+        # 创建配置管理界面
+        self.create_settings_widgets(settings_window)
+        
+    def create_settings_widgets(self, parent):
+        """创建配置管理界面"""
+        # 主框架
+        main_frame = ttk.Frame(parent, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # 配置管理标签页
+        notebook = ttk.Notebook(main_frame)
+        notebook.pack(fill=tk.BOTH, expand=True)
+        
+        # 基本设置标签页
+        basic_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(basic_frame, text="基本设置")
+        
+        # 转换设置标签页
+        conversion_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(conversion_frame, text="转换设置")
+        
+        # 高级设置标签页
+        advanced_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(advanced_frame, text="高级设置")
+        
+        # 基本设置内容
+        self.create_basic_settings(basic_frame)
+        
+        # 转换设置内容
+        self.create_conversion_settings(conversion_frame)
+        
+        # 高级设置内容
+        self.create_advanced_settings(advanced_frame)
+        
+        # 按钮框架
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, pady=10)
+        
+        # 保存按钮
+        ttk.Button(button_frame, text="保存配置", command=self.save_settings).pack(side=tk.RIGHT, padx=5)
+        
+        # 恢复默认按钮
+        ttk.Button(button_frame, text="恢复默认", command=self.restore_defaults).pack(side=tk.RIGHT, padx=5)
+        
+        # 取消按钮
+        ttk.Button(button_frame, text="取消", command=parent.destroy).pack(side=tk.RIGHT, padx=5)
+        
+    def create_basic_settings(self, parent):
+        """创建基本设置界面"""
+        # 日志级别
+        ttk.Label(parent, text="日志级别:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        log_level_combo = ttk.Combobox(parent, textvariable=self.log_level, values=["DEBUG", "INFO", "WARNING", "ERROR"], state="readonly")
+        log_level_combo.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5, padx=(0, 10))
+        
+        # 输出格式
+        ttk.Label(parent, text="输出格式:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        output_format_combo = ttk.Combobox(parent, textvariable=self.output_format, values=["markdown", "html", "txt"], state="readonly")
+        output_format_combo.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(0, 10))
+        
+        # 配置列权重
+        parent.columnconfigure(1, weight=1)
+        
+    def create_conversion_settings(self, parent):
+        """创建转换设置界面"""
+        # 批量处理
+        ttk.Label(parent, text="批量处理:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        batch_checkbox = ttk.Checkbutton(parent, text="启用批量处理", variable=self.batch_processing)
+        batch_checkbox.grid(row=0, column=1, sticky=tk.W, pady=5)
+        
+        # 并行任务数
+        ttk.Label(parent, text="并行任务数:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        max_jobs_spinbox = ttk.Spinbox(parent, textvariable=self.max_parallel_jobs, from_=1, to=16, width=5)
+        max_jobs_spinbox.grid(row=1, column=1, sticky=tk.W, pady=5)
+        
+        # 文件过滤器
+        ttk.Label(parent, text="文件过滤器:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        file_filters_entry = ttk.Entry(parent, textvariable=self.file_filters, width=30)
+        file_filters_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=5)
+        ttk.Label(parent, text="格式: docx,pptx,pdf,txt").grid(row=3, column=1, sticky=tk.W, pady=2)
+        
+        # 配置列权重
+        parent.columnconfigure(1, weight=1)
+        
+    def create_advanced_settings(self, parent):
+        """创建高级设置界面"""
+        # 备份管理
+        ttk.Label(parent, text="配置备份:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        backup_button = ttk.Button(parent, text="创建备份", command=self.create_backup)
+        backup_button.grid(row=0, column=1, sticky=tk.W, pady=5)
+        
+        # 备份列表
+        ttk.Label(parent, text="可用备份:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        self.backup_listbox = tk.Listbox(parent, height=6)
+        self.backup_listbox.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+        
+        # 恢复按钮
+        restore_button = ttk.Button(parent, text="恢复选中备份", command=self.restore_backup)
+        restore_button.grid(row=2, column=1, sticky=tk.W, pady=5)
+        
+        # 加载备份列表
+        self.load_backup_list()
+        
+        # 配置列权重和行权重
+        parent.columnconfigure(1, weight=1)
+        parent.rowconfigure(1, weight=1)
+        
+    def save_settings(self):
+        """保存配置设置"""
+        if self.save_config():
+            messagebox.showinfo("成功", "配置已保存")
+            
+    def restore_defaults(self):
+        """恢复默认设置"""
+        if messagebox.askyesno("确认", "确定要恢复默认设置吗？"):
+            self.log_level.set("INFO")
+            self.output_format.set("markdown")
+            self.batch_processing.set(True)
+            self.max_parallel_jobs.set("2")
+            self.file_filters.set("docx,pptx,pdf,txt")
+            
+    def create_backup(self):
+        """创建配置备份"""
+        try:
+            cmd = [
+                "bash", 
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "src", "modules", "config_manager.sh")
+            ]
+            
+            subprocess.run(cmd + ["backup_config"], check=True)
+            messagebox.showinfo("成功", "配置备份已创建")
+            self.load_backup_list()
+            
+        except subprocess.CalledProcessError as e:
+            messagebox.showerror("错误", f"备份创建失败: {e}")
+            
+    def load_backup_list(self):
+        """加载备份列表"""
+        try:
+            cmd = [
+                "bash", 
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "src", "modules", "config_manager.sh")
+            ]
+            
+            result = subprocess.run(cmd + ["list_backups"], capture_output=True, text=True, check=True)
+            
+            # 清空列表
+            if hasattr(self, 'backup_listbox'):
+                self.backup_listbox.delete(0, tk.END)
+                
+                # 添加备份文件
+                for line in result.stdout.strip().split('\n')[1:]:  # 跳过标题行
+                    if line.strip():
+                        self.backup_listbox.insert(tk.END, line.strip())
+                        
+        except subprocess.CalledProcessError:
+            pass
+            
+    def restore_backup(self):
+        """恢复选中备份"""
+        selection = self.backup_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("警告", "请选择一个备份文件")
+            return
+            
+        backup_file = self.backup_listbox.get(selection[0])
+        
+        if messagebox.askyesno("确认", f"确定要恢复备份文件吗？\n{backup_file}"):
+            try:
+                cmd = [
+                    "bash", 
+                    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "src", "modules", "config_manager.sh")
+                ]
+                
+                subprocess.run(cmd + ["restore_config", backup_file], check=True)
+                
+                # 重新加载配置
+                self.load_config()
+                messagebox.showinfo("成功", "配置已恢复")
+                
+            except subprocess.CalledProcessError as e:
+                messagebox.showerror("错误", f"备份恢复失败: {e}")
             
     def start_conversion(self):
         """开始转换过程"""
