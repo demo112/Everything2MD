@@ -112,21 +112,93 @@ generate_installer() {
     # 创建简单的安装脚本
     cat > "$FINAL_DIR/install.bat" << 'EOF'
 @echo off
-echo Everything2MD Windows安装脚本
-echo 正在设置环境...
-echo 安装完成！
+echo Everything2MD Windows Installer
+echo =============================
+echo Setting up environment...
+echo Installation complete.
+echo Double-click everything2md.bat to run, or use:
+echo everything2md.bat -i input.docx -o output.md
 pause
 EOF
     
     # 创建启动脚本
     cat > "$FINAL_DIR/everything2md.bat" << 'EOF'
 @echo off
-echo Everything2MD - 文档转换工具
-echo 请在命令行中使用: everything2md.bat [选项]
-echo 例如: everything2md.bat -i input.docx -o output.md
+setlocal enabledelayedexpansion
+
+set "SCRIPT_DIR=%~dp0"
+set "DEPS_DIR=%SCRIPT_DIR%deps"
+set "SRC_DIR=%SCRIPT_DIR%src"
+
+if not exist "%DEPS_DIR%" (
+    echo Error: deps directory not found
+    pause
+    exit /b 1
+)
+
+set "PATH=%DEPS_DIR%;%DEPS_DIR%\python;%PATH%"
+
+set "MISSING_DEPS="
+
+if not exist "%DEPS_DIR%\libreoffice_portable.exe" (
+    set "MISSING_DEPS=!MISSING_DEPS! LibreOffice"
+)
+
+if not exist "%DEPS_DIR%\pandoc.exe" (
+    set "MISSING_DEPS=!MISSING_DEPS! Pandoc"
+)
+
+if not exist "%DEPS_DIR%\python\python.exe" (
+    set "MISSING_DEPS=!MISSING_DEPS! Python"
+)
+
+if not exist "%DEPS_DIR%\busybox.exe" (
+    set "MISSING_DEPS=!MISSING_DEPS! BusyBox"
+)
+
+if defined MISSING_DEPS (
+    echo Error: missing dependencies: %MISSING_DEPS%
+    echo Please run install_deps.bat to install dependencies
+    pause
+    exit /b 1
+)
+
+if not exist "%SRC_DIR%" (
+    echo Error: source directory not found
+    pause
+    exit /b 1
+)
+
+"%DEPS_DIR%\busybox.exe" sh "%SRC_DIR%\main.sh" %*
+
+if errorlevel 1 (
+    echo Error occurred
+else (
+    echo Done
+)
+
+pause
 EOF
     
     echo "Windows发行版已生成: $FINAL_DIR"
+
+    ARCHIVE_PATH="$DIST_DIR/Everything2MD-Windows-$VERSION-$BUILD_DATE.7z"
+    EXE_PATH="$DIST_DIR/Everything2MD-Windows-$VERSION-$BUILD_DATE.exe"
+    CONFIG_FILE="$TEMP_DIR/7z_config.txt"
+    echo ";!@Install@!UTF-8!" > "$CONFIG_FILE"
+    echo "RunProgram=\"everything2md.bat\"" >> "$CONFIG_FILE"
+    echo ";!@InstallEnd@!" >> "$CONFIG_FILE"
+    7z a -r "$ARCHIVE_PATH" "$FINAL_DIR" >/dev/null
+    SFX_MOD="/c/Program Files/7-Zip/7z.sfx"
+    if [ ! -f "$SFX_MOD" ]; then
+        SFX_MOD="/c/Program Files (x86)/7-Zip/7z.sfx"
+    fi
+    if [ -f "$SFX_MOD" ]; then
+        cat "$SFX_MOD" "$CONFIG_FILE" "$ARCHIVE_PATH" > "$EXE_PATH"
+        echo "自解压可执行文件已生成: $EXE_PATH"
+    else
+        echo "未找到7z.sfx，跳过自解压可执行文件生成"
+    fi
 }
 
 # 主函数

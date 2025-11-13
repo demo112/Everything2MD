@@ -107,6 +107,14 @@ EOF
     echo "Python和pptx2md处理完成"
 }
 
+install_busybox() {
+    echo "下载并安装BusyBox Windows版本..."
+    BUSYBOX_URL="https://frippery.org/files/busybox/busybox.exe"
+    BUSYBOX_FILE="$DEPS_DIR/busybox.exe"
+    curl -L -o "$BUSYBOX_FILE" "$BUSYBOX_URL"
+    echo "BusyBox安装完成"
+}
+
 # 创建依赖项打包脚本
 create_deps_script() {
     echo "创建依赖项打包脚本..."
@@ -155,6 +163,7 @@ main() {
     
     # 下载并安装Python及pptx2md
     install_python_pptx2md
+    install_busybox
     
     # 创建依赖项打包脚本
     create_deps_script
