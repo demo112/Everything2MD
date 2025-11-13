@@ -35,10 +35,12 @@ jobs:
         ls -la build/dist/
         echo "Windows directory contents:"
         ls -la build/dist/windows/
+        echo "Final release directory contents:"
+        ls -la build/dist/Everything2MD-Windows-*
       shell: bash
 
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
         name: everything2md-windows
-        path: build/dist/windows/
+        path: build/dist/Everything2MD-Windows-*

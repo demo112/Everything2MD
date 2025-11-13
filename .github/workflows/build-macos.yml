@@ -32,9 +32,11 @@ jobs:
         ls -la build/dist/
         echo "macOS directory contents:"
         ls -la build/dist/macos/
+        echo "Final release directory contents:"
+        ls -la build/dist/Everything2MD-macOS-*
 
     - name: Upload macOS artifact
       uses: actions/upload-artifact@v4
       with:
         name: everything2md-macos
-        path: build/dist/macos/
+        path: build/dist/Everything2MD-macOS-*

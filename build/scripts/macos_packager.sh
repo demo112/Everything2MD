@@ -77,14 +77,16 @@ package_dependencies() {
     mkdir -p "$INSTALLER_DIR/deps"
     mkdir -p "$APP_BUNDLE_DIR/Contents/Resources/deps"
     
-    # 复制Pandoc
-    if [ -d "$TEMP_DIR/pandoc-3.1.11-arm64" ]; then
-        echo "复制Pandoc..."
-        cp -r "$TEMP_DIR/pandoc-3.1.11-arm64" "$APP_BUNDLE_DIR/Contents/Resources/deps/pandoc"
+    # 从 dist/macos/deps 复制到 .app Bundle 内
+    if [ -f "$DIST_DIR/macos/deps/pandoc" ]; then
+        echo "复制Pandoc到 .app..."
+        cp "$DIST_DIR/macos/deps/pandoc" "$APP_BUNDLE_DIR/Contents/Resources/deps/pandoc"
+        chmod +x "$APP_BUNDLE_DIR/Contents/Resources/deps/pandoc"
+    else
+        echo "警告: 未在 dist/macos/deps 中找到 Pandoc"
     fi
     
-    # 注意：LibreOffice需要用户手动安装
-    # 在启动器脚本中会提示用户安装LibreOffice
+    # LibreOffice 保留在发行目录供用户手动安装
     
     echo "依赖项打包完成"
 }
@@ -146,6 +148,11 @@ generate_installer() {
     # 复制App Bundle到发行版目录
     cp -r "$APP_BUNDLE_DIR" "$FINAL_DIR/"
     
+    # 同步依赖目录到最终发行版
+    if [ -d "$DIST_DIR/macos/deps" ]; then
+        cp -r "$DIST_DIR/macos/deps" "$FINAL_DIR/deps"
+    fi
+    
     # 创建简单的安装说明
     cat > "$FINAL_DIR/安装说明.txt" << EOF
 Everything2MD for macOS 安装说明
@@ -169,6 +176,9 @@ main() {
     # 创建App Bundle结构
     create_app_bundle
     
+    # 运行依赖打包脚本，准备 dist/macos/deps
+    "$SCRIPT_DIR/macos_deps_packager.sh"
+
     # 打包依赖项
     package_dependencies
     

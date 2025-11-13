@@ -136,7 +136,9 @@ main() {
     # 设置MSYS2环境
     setup_msys2
     
-    # 打包依赖项
+    # 打包依赖项（调用独立依赖打包脚本以确保deps完整）
+    "$SCRIPT_DIR/windows_deps_packager.sh"
+    # 补充任何本模块内的依赖打包占位逻辑
     package_dependencies
     
     # 编译启动器
