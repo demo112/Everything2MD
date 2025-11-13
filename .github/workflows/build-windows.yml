@@ -13,6 +13,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21.x'
+
     - name: Set up environment
       run: |
         echo "Setting up build environment"
@@ -35,6 +40,8 @@ jobs:
         ls -la build/dist/
         echo "Windows directory contents:"
         ls -la build/dist/windows/
+        echo "Native exe:"
+        ls -la build/dist/windows/Everything2MD.exe || true
         echo "Final release directory contents:"
         ls -la build/dist/Everything2MD-Windows-*
       shell: bash

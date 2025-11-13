@@ -56,9 +56,19 @@ if not exist "%DEPS_DIR%" (
 
 set "PATH=%DEPS_DIR%;%DEPS_DIR%\python;%PATH%"
 
+rem 探测并添加 LibreOffice 到 PATH
+set "LO_CANDIDATE1=%SCRIPT_DIR%LibreOfficePortable\App\libreoffice\program"
+set "LO_CANDIDATE2=%ProgramFiles%\LibreOffice\program"
+set "LO_CANDIDATE3=%ProgramFiles(x86)%\LibreOffice\program"
+if exist "%LO_CANDIDATE1%\soffice.exe" set "PATH=%LO_CANDIDATE1%;%PATH%"
+if exist "%LO_CANDIDATE2%\soffice.exe" set "PATH=%LO_CANDIDATE2%;%PATH%"
+if exist "%LO_CANDIDATE3%\soffice.exe" set "PATH=%LO_CANDIDATE3%;%PATH%"
+
 set "MISSING_DEPS="
 
-if not exist "%DEPS_DIR%\libreoffice_portable.exe" (
+rem 如果未检测到 soffice.exe，则提示 LibreOffice 缺失
+where soffice >nul 2>nul
+if errorlevel 1 (
     set "MISSING_DEPS=!MISSING_DEPS! LibreOffice"
 )
 

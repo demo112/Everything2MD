@@ -4,11 +4,14 @@
 
 # 检查LibreOffice是否已安装
 check_libreoffice_installed() {
-    if ! command -v libreoffice >/dev/null 2>&1; then
-        handle_error "LibreOffice未安装，请先安装LibreOffice"
-        return 1
+    if command -v libreoffice >/dev/null 2>&1; then
+        return 0
     fi
-    return 0
+    if command -v soffice >/dev/null 2>&1; then
+        return 0
+    fi
+    handle_error "LibreOffice未安装，请先安装LibreOffice"
+    return 1
 }
 
 # 使用LibreOffice将Office文档转换为Markdown
@@ -29,7 +32,11 @@ convert_office_to_md() {
     cp "$input_file" "$safe_input_file"
     
     # 使用LibreOffice转换为HTML
-    libreoffice --headless --convert-to html --outdir "$temp_dir" "$safe_input_file" >/dev/null 2>&1
+    if command -v libreoffice >/dev/null 2>&1; then
+        libreoffice --headless --convert-to html --outdir "$temp_dir" "$safe_input_file" >/dev/null 2>&1
+    else
+        soffice --headless --convert-to html --outdir "$temp_dir" "$safe_input_file" >/dev/null 2>&1
+    fi
     
     # 检查转换是否成功
     if [[ $? -ne 0 ]]; then

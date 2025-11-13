@@ -57,7 +57,6 @@ compile_launcher() {
     # 创建启动器目录
     mkdir -p "$INSTALLER_DIR/launcher"
     
-    # 复制Windows启动器脚本到发行版
     echo "复制Windows启动器..."
     cp "$SCRIPT_DIR/windows_launcher.bat" "$INSTALLER_DIR/launcher/"
     
@@ -68,6 +67,17 @@ compile_launcher() {
     fi
     
     echo "Windows启动器编译完成"
+}
+
+compile_native_exe() {
+    echo "编译原生Windows可执行程序..."
+    if command -v go >/dev/null 2>&1; then
+        GOEXE_OUT="$INSTALLER_DIR/Everything2MD.exe"
+        go build -o "$GOEXE_OUT" "$PROJECT_ROOT/build/tools/winexe/main.go"
+        echo "原生可执行程序已生成: $GOEXE_OUT"
+    else
+        echo "未检测到Go，跳过原生可执行编译"
+    fi
 }
 
 # 整合所有组件
@@ -138,9 +148,18 @@ if not exist "%DEPS_DIR%" (
 
 set "PATH=%DEPS_DIR%;%DEPS_DIR%\python;%PATH%"
 
+rem 探测并添加 LibreOffice 到 PATH
+set "LO_CANDIDATE1=%SCRIPT_DIR%LibreOfficePortable\App\libreoffice\program"
+set "LO_CANDIDATE2=%ProgramFiles%\LibreOffice\program"
+set "LO_CANDIDATE3=%ProgramFiles(x86)%\LibreOffice\program"
+if exist "%LO_CANDIDATE1%\soffice.exe" set "PATH=%LO_CANDIDATE1%;%PATH%"
+if exist "%LO_CANDIDATE2%\soffice.exe" set "PATH=%LO_CANDIDATE2%;%PATH%"
+if exist "%LO_CANDIDATE3%\soffice.exe" set "PATH=%LO_CANDIDATE3%;%PATH%"
+
 set "MISSING_DEPS="
 
-if not exist "%DEPS_DIR%\libreoffice_portable.exe" (
+where soffice >nul 2>nul
+if errorlevel 1 (
     set "MISSING_DEPS=!MISSING_DEPS! LibreOffice"
 )
 
@@ -215,6 +234,7 @@ main() {
     
     # 编译启动器
     compile_launcher
+    compile_native_exe
     
     # 整合组件
     integrate_components
