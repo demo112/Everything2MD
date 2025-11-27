@@ -11,6 +11,8 @@ import os
 import threading
 import queue
 import json
+import signal
+import re
 
 class Everything2MDGUI:
     def __init__(self, root):
@@ -38,6 +40,11 @@ class Everything2MDGUI:
         
     def create_widgets(self):
         # 主框架
+        try:
+            style = ttk.Style()
+            style.theme_use('clam')
+        except Exception:
+            pass
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
@@ -48,13 +55,17 @@ class Everything2MDGUI:
         
         # 输入选择
         ttk.Label(main_frame, text="输入路径:").grid(row=0, column=0, sticky=tk.W, pady=2)
-        ttk.Entry(main_frame, textvariable=self.input_path).grid(row=0, column=1, sticky=(tk.W, tk.E), pady=2, padx=(0, 5))
-        ttk.Button(main_frame, text="浏览...", command=self.browse_input).grid(row=0, column=2, pady=2)
+        self.input_entry = ttk.Entry(main_frame, textvariable=self.input_path)
+        self.input_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=2, padx=(0, 5))
+        self.browse_input_button = ttk.Button(main_frame, text="浏览...", command=self.browse_input)
+        self.browse_input_button.grid(row=0, column=2, pady=2)
         
         # 输出选择
         ttk.Label(main_frame, text="输出路径:").grid(row=1, column=0, sticky=tk.W, pady=2)
-        ttk.Entry(main_frame, textvariable=self.output_path).grid(row=1, column=1, sticky=(tk.W, tk.E), pady=2, padx=(0, 5))
-        ttk.Button(main_frame, text="浏览...", command=self.browse_output).grid(row=1, column=2, pady=2)
+        self.output_entry = ttk.Entry(main_frame, textvariable=self.output_path)
+        self.output_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=2, padx=(0, 5))
+        self.browse_output_button = ttk.Button(main_frame, text="浏览...", command=self.browse_output)
+        self.browse_output_button.grid(row=1, column=2, pady=2)
         
         # 参数配置
         config_frame = ttk.LabelFrame(main_frame, text="转换配置", padding="5")
@@ -63,28 +74,28 @@ class Everything2MDGUI:
         
         # 日志级别
         ttk.Label(config_frame, text="日志级别:").grid(row=0, column=0, sticky=tk.W, pady=2)
-        log_level_combo = ttk.Combobox(config_frame, textvariable=self.log_level, values=["DEBUG", "INFO", "WARNING", "ERROR"], state="readonly")
-        log_level_combo.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=2, padx=(0, 5))
+        self.log_level_combo = ttk.Combobox(config_frame, textvariable=self.log_level, values=["DEBUG", "INFO", "WARNING", "ERROR"], state="readonly")
+        self.log_level_combo.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=2, padx=(0, 5))
         
         # 输出格式
         ttk.Label(config_frame, text="输出格式:").grid(row=0, column=2, sticky=tk.W, pady=2)
-        output_format_combo = ttk.Combobox(config_frame, textvariable=self.output_format, values=["markdown", "html", "txt"], state="readonly")
-        output_format_combo.grid(row=0, column=3, sticky=(tk.W, tk.E), pady=2)
+        self.output_format_combo = ttk.Combobox(config_frame, textvariable=self.output_format, values=["markdown", "html", "txt"], state="readonly")
+        self.output_format_combo.grid(row=0, column=3, sticky=(tk.W, tk.E), pady=2)
         
         # 批量处理
         ttk.Label(config_frame, text="批量处理:").grid(row=1, column=0, sticky=tk.W, pady=2)
-        batch_checkbox = ttk.Checkbutton(config_frame, text="启用", variable=self.batch_processing)
-        batch_checkbox.grid(row=1, column=1, sticky=tk.W, pady=2)
+        self.batch_checkbox = ttk.Checkbutton(config_frame, text="启用", variable=self.batch_processing)
+        self.batch_checkbox.grid(row=1, column=1, sticky=tk.W, pady=2)
         
         # 并行任务数
         ttk.Label(config_frame, text="并行任务数:").grid(row=1, column=2, sticky=tk.W, pady=2)
-        max_jobs_spinbox = ttk.Spinbox(config_frame, textvariable=self.max_parallel_jobs, from_=1, to=16, width=5)
-        max_jobs_spinbox.grid(row=1, column=3, sticky=tk.W, pady=2)
+        self.max_jobs_spinbox = ttk.Spinbox(config_frame, textvariable=self.max_parallel_jobs, from_=1, to=16, width=5)
+        self.max_jobs_spinbox.grid(row=1, column=3, sticky=tk.W, pady=2)
         
         # 文件过滤器
         ttk.Label(config_frame, text="文件过滤器:").grid(row=2, column=0, sticky=tk.W, pady=2)
-        file_filters_entry = ttk.Entry(config_frame, textvariable=self.file_filters)
-        file_filters_entry.grid(row=2, column=1, columnspan=3, sticky=(tk.W, tk.E), pady=2)
+        self.file_filters_entry = ttk.Entry(config_frame, textvariable=self.file_filters)
+        self.file_filters_entry.grid(row=2, column=1, columnspan=3, sticky=(tk.W, tk.E), pady=2)
         
         # 操作按钮
         button_frame = ttk.Frame(main_frame)
@@ -98,6 +109,8 @@ class Everything2MDGUI:
         
         self.settings_button = ttk.Button(button_frame, text="配置管理", command=self.open_settings)
         self.settings_button.pack(side=tk.LEFT, padx=5)
+        self.save_log_button = ttk.Button(button_frame, text="保存日志", command=self.save_logs)
+        self.save_log_button.pack(side=tk.LEFT, padx=5)
         
         # 进度显示
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
@@ -111,9 +124,39 @@ class Everything2MDGUI:
         scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.status_text.yview)
         scrollbar.grid(row=5, column=3, sticky=(tk.N, tk.S))
         self.status_text.configure(yscrollcommand=scrollbar.set)
+        try:
+            self.status_text.tag_configure('error', foreground='red')
+            self.status_text.tag_configure('warn', foreground='orange')
+            self.status_text.tag_configure('info', foreground='black')
+        except Exception:
+            pass
         
         # 配置主框架的行权重
         main_frame.rowconfigure(5, weight=1)
+        self.status_bar = ttk.Label(main_frame, text="就绪", anchor='w')
+        self.status_bar.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E))
+
+        self.output_queue = queue.Queue()
+        self.queue_job = None
+
+    def set_controls_disabled(self, disabled):
+        state = tk.DISABLED if disabled else tk.NORMAL
+        for w in [
+            self.input_entry,
+            self.output_entry,
+            self.browse_input_button,
+            self.browse_output_button,
+            self.log_level_combo,
+            self.output_format_combo,
+            self.batch_checkbox,
+            self.max_jobs_spinbox,
+            self.file_filters_entry,
+            self.settings_button,
+        ]:
+            try:
+                w.config(state=state)
+            except Exception:
+                pass
         
     def browse_input(self):
         """浏览选择输入路径"""
@@ -191,6 +234,14 @@ class Everything2MDGUI:
                     self.file_filters.set(','.join(filters))
                 else:
                     self.file_filters.set(filters_str)
+
+            result = subprocess.run(cmd + ["get_config", "last_input_path"], capture_output=True, text=True, check=True)
+            if result.stdout.strip():
+                self.input_path.set(result.stdout.strip())
+
+            result = subprocess.run(cmd + ["get_config", "last_output_path"], capture_output=True, text=True, check=True)
+            if result.stdout.strip():
+                self.output_path.set(result.stdout.strip())
                     
             print("配置加载成功")
             return True
@@ -223,9 +274,12 @@ class Everything2MDGUI:
                                 "true" if self.batch_processing.get() else "false"], check=True)
             subprocess.run(cmd + ["set_config", "max_parallel_jobs", self.max_parallel_jobs.get()], check=True)
             
-            # 保存文件过滤器
-            filters = [f.strip() for f in self.file_filters.get().split(',') if f.strip()]
-            subprocess.run(cmd + ["set_config", "file_filters", ",".join(filters)], check=True)
+            filters = [f.strip().lower() for f in self.file_filters.get().split(',') if f.strip()]
+            unique_filters = []
+            for f in filters:
+                if f and all(c.isalnum() for c in f) and f not in unique_filters:
+                    unique_filters.append(f)
+            subprocess.run(cmd + ["set_config", "file_filters", ",".join(unique_filters)], check=True)
             
             # 保存路径设置 - 使用配置管理器命令
             subprocess.run(cmd + ["set_config", "last_input_path", self.input_path.get()], check=True)
@@ -352,6 +406,9 @@ class Everything2MDGUI:
         # 恢复按钮
         restore_button = ttk.Button(parent, text="恢复选中备份", command=self.restore_backup)
         restore_button.grid(row=2, column=1, sticky=tk.W, pady=5)
+
+        delete_button = ttk.Button(parent, text="删除选中备份", command=self.delete_backup)
+        delete_button.grid(row=2, column=0, sticky=tk.W, pady=5)
         
         # 加载备份列表
         self.load_backup_list()
@@ -435,6 +492,22 @@ class Everything2MDGUI:
                 
             except subprocess.CalledProcessError as e:
                 messagebox.showerror("错误", f"备份恢复失败: {e}")
+
+    def delete_backup(self):
+        selection = getattr(self, 'backup_listbox', None).curselection() if hasattr(self, 'backup_listbox') else ()
+        if not selection:
+            messagebox.showwarning("警告", "请选择一个备份文件")
+            return
+        backup_file = self.backup_listbox.get(selection[0])
+        if not backup_file:
+            return
+        if messagebox.askyesno("确认", f"确定要删除备份文件吗？\n{backup_file}"):
+            try:
+                os.remove(backup_file)
+                self.load_backup_list()
+                messagebox.showinfo("成功", "备份已删除")
+            except Exception as e:
+                messagebox.showerror("错误", f"删除失败: {e}")
             
     def start_conversion(self):
         """开始转换过程"""
@@ -451,10 +524,15 @@ class Everything2MDGUI:
         if not os.path.exists(self.input_path.get()):
             messagebox.showerror("错误", "输入路径不存在")
             return
+
+        if not self.file_filters.get().strip():
+            messagebox.showerror("错误", "文件过滤器不能为空")
+            return
             
         # 禁用开始按钮，启用取消按钮
         self.start_button.config(state=tk.DISABLED)
         self.cancel_button.config(state=tk.NORMAL)
+        self.set_controls_disabled(True)
         self.is_converting = True
         
         # 清空状态文本
@@ -462,11 +540,15 @@ class Everything2MDGUI:
         
         # 启动进度条
         self.progress.start()
+        self.status_bar.config(text="运行中")
         
         # 在新线程中执行转换
         thread = threading.Thread(target=self.run_conversion)
         thread.daemon = True
         thread.start()
+
+        if self.queue_job is None:
+            self.queue_job = self.root.after(100, self.drain_output_queue)
         
     def run_conversion(self):
         """执行转换过程"""
@@ -479,31 +561,53 @@ class Everything2MDGUI:
             cmd.extend(["-i", self.input_path.get()])
             
             # 如果输出路径是一个目录，则构建完整的输出文件路径
-            output_path = self.output_path.get()
-            if os.path.isdir(output_path):
-                input_filename = os.path.basename(self.input_path.get())
-                output_filename = os.path.splitext(input_filename)[0] + ".md"
-                output_path = os.path.join(output_path, output_filename)
+        output_path = self.output_path.get()
+        if os.path.isdir(output_path):
+            input_filename = os.path.basename(self.input_path.get())
+            output_filename = os.path.splitext(input_filename)[0] + ".md"
+            output_path = os.path.join(output_path, output_filename)
             
+        out_dir = os.path.dirname(output_path)
+        if not os.path.exists(out_dir):
+            try:
+                os.makedirs(out_dir, exist_ok=True)
+            except Exception:
+                messagebox.showerror("错误", "输出目录不可用")
+                self.set_controls_disabled(False)
+                return
+        if not os.access(out_dir, os.W_OK):
+            messagebox.showerror("错误", "输出目录不可写")
+            self.set_controls_disabled(False)
+            return
             cmd.extend(["-o", output_path])
             
             if self.log_level.get() != "INFO":
                 cmd.extend(["-l", self.log_level.get()])
                 
             # 执行命令
+            creationflags = 0
+            if os.name == 'nt':
+                try:
+                    creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
+                except Exception:
+                    creationflags = 0
             self.process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
-                bufsize=1
+                bufsize=1,
+                creationflags=creationflags
             )
             
             # 读取输出
             for line in self.process.stdout:
                 if not self.is_converting:
                     break
-                self.root.after(0, self.update_status, line)
+                try:
+                    self.output_queue.put(line)
+                except Exception:
+                    pass
                 
             # 等待进程结束
             self.process.wait()
@@ -518,14 +622,68 @@ class Everything2MDGUI:
         """更新状态显示"""
         self.status_text.insert(tk.END, message)
         self.status_text.see(tk.END)
+
+    def drain_output_queue(self):
+        lines = []
+        max_batch = 200
+        while not self.output_queue.empty() and len(lines) < max_batch:
+            try:
+                lines.append(self.output_queue.get_nowait())
+            except Exception:
+                break
+        if lines:
+            for ln in lines:
+                tag = 'info'
+                if 'ERROR' in ln:
+                    tag = 'error'
+                elif 'WARN' in ln or 'WARNING' in ln or '警告' in ln:
+                    tag = 'warn'
+                try:
+                    self.status_text.insert(tk.END, ln, tag)
+                except Exception:
+                    self.status_text.insert(tk.END, ln)
+            self.status_text.see(tk.END)
+            self.update_progress_from_text(''.join(lines))
+        if self.is_converting:
+            self.queue_job = self.root.after(100, self.drain_output_queue)
+        else:
+            if self.queue_job:
+                try:
+                    self.root.after_cancel(self.queue_job)
+                except Exception:
+                    pass
+                self.queue_job = None
+
+    def update_progress_from_text(self, text):
+        m = re.search(r"(\d{1,3})%", text)
+        if m:
+            try:
+                pct = int(m.group(1))
+                if 0 <= pct <= 100:
+                    self.progress.stop()
+                    self.progress.config(mode='determinate')
+                    self.progress['value'] = pct
+            except Exception:
+                pass
+        c = re.search(r"(\d+)\s*/\s*(\d+)", text)
+        if c:
+            try:
+                cur = int(c.group(1))
+                total = int(c.group(2))
+                self.status_bar.config(text=f"运行中 {cur}/{total}")
+            except Exception:
+                pass
         
     def conversion_finished(self):
         """转换完成处理"""
         self.progress.stop()
+        self.progress.config(mode='indeterminate')
         self.start_button.config(state=tk.NORMAL)
         self.cancel_button.config(state=tk.DISABLED)
+        self.set_controls_disabled(False)
         self.is_converting = False
         self.process = None
+        self.status_bar.config(text="完成")
         
         # 显示完成消息
         messagebox.showinfo("完成", "转换完成!")
@@ -533,10 +691,13 @@ class Everything2MDGUI:
     def conversion_error(self, error_message):
         """转换错误处理"""
         self.progress.stop()
+        self.progress.config(mode='indeterminate')
         self.start_button.config(state=tk.NORMAL)
         self.cancel_button.config(state=tk.DISABLED)
+        self.set_controls_disabled(False)
         self.is_converting = False
         self.process = None
+        self.status_bar.config(text="错误")
         
         # 显示错误消息
         messagebox.showerror("错误", f"转换过程中发生错误:\n{error_message}")
@@ -544,16 +705,40 @@ class Everything2MDGUI:
     def cancel_conversion(self):
         """取消转换过程"""
         if self.process and self.is_converting:
-            self.process.terminate()
+            try:
+                if os.name == 'nt':
+                    try:
+                        self.process.send_signal(signal.CTRL_BREAK_EVENT)
+                    except Exception:
+                        self.process.terminate()
+                else:
+                    self.process.terminate()
+            except Exception:
+                pass
             self.is_converting = False
-            
+        
         self.progress.stop()
+        self.progress.config(mode='indeterminate')
         self.start_button.config(state=tk.NORMAL)
         self.cancel_button.config(state=tk.DISABLED)
+        self.set_controls_disabled(False)
         
         # 显示取消消息
         self.status_text.insert(tk.END, "\n转换已取消\n")
         self.status_text.see(tk.END)
+        self.status_bar.config(text="已取消")
+
+    def save_logs(self):
+        try:
+            path = filedialog.asksaveasfilename(title="保存日志", defaultextension=".log", filetypes=[("日志文件", "*.log"), ("文本文件", "*.txt"), ("所有文件", "*.*")])
+            if not path:
+                return
+            data = self.status_text.get("1.0", tk.END)
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(data)
+            messagebox.showinfo("成功", "日志已保存")
+        except Exception as e:
+            messagebox.showerror("错误", str(e))
 
 def main():
     root = tk.Tk()

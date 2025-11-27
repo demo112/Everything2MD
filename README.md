@@ -9,7 +9,7 @@ Everything2MD 是一个强大的文档转换工具，可以将各种格式的文
 - 模块化设计，易于扩展和维护
 - 配置文件支持，可自定义转换参数
 - 详细的日志记录和错误处理机制
-- 提供Windows和macOS平台的启动器应用
+- 提供源码运行与 Docker 运行方式（推荐 Docker）
 
 ## 支持的文件格式
 
@@ -28,19 +28,7 @@ Everything2MD 是一个强大的文档转换工具，可以将各种格式的文
 
 ## 安装说明
 
-### 方法一：使用预编译的启动器应用（推荐）
-
-#### Windows平台
-1. 从发布页面下载Everything2MD-Windows-*.zip文件
-2. 解压到任意目录
-3. 运行`everything2md.bat`即可使用
-
-#### macOS平台
-1. 从发布页面下载Everything2MD-macOS-*.dmg文件
-2. 挂载DMG并拖拽Everything2MD.app到Applications文件夹
-3. 在终端中运行`/Applications/Everything2MD.app/Contents/MacOS/everything2md`即可使用
-
-### 方法二：从源码运行
+### 源码运行（开发用途）
 
 1. 确保系统已安装 Bash 4.0 或更高版本：
    ```bash
@@ -69,27 +57,26 @@ Everything2MD 是一个强大的文档转换工具，可以将各种格式的文
 
 ## 使用方法
 
-### 方法一：使用启动器应用
+### Docker 运行（推荐）
 
-#### Windows平台
-```cmd
-# 转换单个文件
-everything2md.bat -i input.docx -o output.md
-
-# 批量处理目录
-everything2md.bat -i C:\path\to\input\dir -o C:\path\to\output\dir -b
-```
-
-#### macOS平台
 ```bash
-# 转换单个文件
-/Applications/Everything2MD.app/Contents/MacOS/everything2md -i input.docx -o output.md
+# 1) 构建镜像（国内环境建议使用国内镜像源与加速）
+docker build -t everything2md:latest .
 
-# 批量处理目录
-/Applications/Everything2MD.app/Contents/MacOS/everything2md -i /path/to/input/dir -o /path/to/output/dir -b
+# 2) 挂载输入输出目录并执行转换（设置时区与UTF-8编码）
+docker run --rm \
+  -e TZ=Asia/Shanghai \
+  -v "$PWD/input":/work/input \
+  -v "$PWD/output":/work/output \
+  everything2md:latest \
+  ./src/main.sh -i /work/input/Untitled\ 1.doc -o /work/output/out.md
 ```
 
-### 方法二：从源码运行
+说明：
+- 推荐在 Docker 守护进程配置 `registry-mirrors`（如阿里云/腾讯云）以加速镜像拉取。
+- 容器内已设置 `TZ=Asia/Shanghai` 与 `LANG/LC_ALL` 为 UTF-8，避免中文乱码。
+
+### 源码运行
 
 ```bash
 # 转换单个文件
@@ -98,6 +85,11 @@ everything2md.bat -i C:\path\to\input\dir -o C:\path\to\output\dir -b
 # 批量处理目录
 ./src/main.sh -i /path/to/input/dir -o /path/to/output/dir -b
 ```
+
+### 图形界面（GUI）入口
+
+- 桌面版 GUI 位于 `src/gui/main.py`，提供文件选择、参数配置、进度与日志显示。
+- `src/gui/fixed_main.py` 与 `src/gui/fixed_main_v2.py` 为历史示例，已不再作为主入口。
 
 ### 命令行参数
 
@@ -123,6 +115,8 @@ log_level=INFO
 Everything2MD/
 ├── src/                     # 源代码目录
 │   ├── main.sh              # 主程序入口
+│   ├── gui/                 # Tkinter 图形界面
+│   │   └── main.py          # GUI 主入口
 │   └── modules/             # 功能模块
 │       ├── argument_parser.sh      # 参数解析模块
 │       ├── batch_processor.sh      # 批量处理模块
@@ -135,10 +129,10 @@ Everything2MD/
 │       ├── logger.sh               # 日志记录模块
 │       ├── pandoc_converter.sh     # Pandoc转换模块
 │       └── pptx2md_converter.sh    # pptx2md转换模块
-├── build/                   # 构建目录
-│   ├── scripts/             # 构建脚本
-│   ├── dist/                # 发行版输出目录
-│   └── temp/                # 临时文件目录
+├── build/                   # （已废弃）历史构建目录
+│   ├── scripts/             # （已废弃）历史构建脚本
+│   ├── dist/                # （已废弃）历史发行版输出目录
+│   └── temp/                # （已废弃）历史临时目录
 └── docs/                    # 项目文档
 ```
 
@@ -150,23 +144,16 @@ Everything2MD/
 2. 实现文件类型检测逻辑
 3. 在主程序中集成新模块
 
-### 构建和发行
+### Docker 构建与测试
 
-本项目支持构建Windows和macOS平台的发行版：
-
-#### Windows平台构建
 ```bash
-# 在Windows环境中运行
-build/scripts/windows_packager.bat
-```
+# 构建镜像
+docker build -t everything2md:latest .
 
-#### macOS平台构建
-```bash
-# 在macOS环境中运行
-build/scripts/macos_packager.sh
+# 运行所有测试（在容器内）
+docker run --rm -e TZ=Asia/Shanghai -v "$PWD":/work -w /work everything2md:latest \
+  test/bats/bin/bats test/unit test/integration
 ```
-
-构建产物将输出到 `build/dist/` 目录。
 
 ### 代码规范
 

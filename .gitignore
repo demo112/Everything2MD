@@ -43,3 +43,8 @@ docs/*/Architect（架构阶段）/
 docs/*/Assess（评估阶段）/
 docs/*/Atomize（原子化阶段）/
 docs/*/Automate（自动化执行）/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.trae/
