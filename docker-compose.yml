@@ -1,0 +1,18 @@
+version: '3'
+
+services:
+  everything2md:
+    build: .
+    image: everything2md:latest
+    container_name: everything2md
+    volumes:
+      - .:/work
+      - ./data/input:/work/input
+      - ./data/output:/work/output
+    environment:
+      - TZ=Asia/Shanghai
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+    tty: true
+    stdin_open: true
+    restart: unless-stopped

@@ -15,6 +15,7 @@ RUN sed -i 's|archive.ubuntu.com|mirrors.aliyun.com|g' /etc/apt/sources.list \
     jq \
     python3 \
     python3-pip \
+    python3-venv \
     fonts-noto-cjk \
  && rm -rf /var/lib/apt/lists/*
 
@@ -22,6 +23,11 @@ RUN sed -i 's|archive.ubuntu.com|mirrors.aliyun.com|g' /etc/apt/sources.list \
 ENV TZ=Asia/Shanghai \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8
+
+# 配置虚拟环境 (venv)
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # 配置 pip 国内镜像并安装依赖
 RUN pip3 config set global.index-url https://mirrors.aliyun.com/pypi/simple/ \
