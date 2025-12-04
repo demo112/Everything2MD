@@ -4,15 +4,16 @@
 
 # 检查所有依赖是否已安装
 check_dependencies() {
-    # 检查LibreOffice/soffice（必需，至少其一）
+    # 检查LibreOffice/soffice
+    HAS_LIBREOFFICE=false
     if command -v libreoffice >/dev/null 2>&1; then
+        HAS_LIBREOFFICE=true
         log_info "检测到 libreoffice"
     elif command -v soffice >/dev/null 2>&1; then
+        HAS_LIBREOFFICE=true
         log_info "检测到 soffice"
     else
-        handle_error "LibreOffice未安装，这是必需的依赖"
-        log_error "请安装LibreOffice/soffice后再运行程序"
-        exit 1
+        log_warn "LibreOffice未安装，部分功能(PDF/PPT转换)将受限，DOCX将尝试使用Pandoc转换"
     fi
     
     # 检查可选依赖并记录日志
@@ -45,4 +46,18 @@ check_dependencies() {
     fi
     
     log_info "依赖检查完成"
+}
+
+# 检查LibreOffice是否已安装 (供其他模块调用)
+check_libreoffice_installed() {
+    if [[ "$HAS_LIBREOFFICE" == "true" ]]; then
+        return 0
+    fi
+    # 尝试再次检查
+    if command -v libreoffice >/dev/null 2>&1 || command -v soffice >/dev/null 2>&1; then
+        HAS_LIBREOFFICE=true
+        return 0
+    fi
+    # 不再直接报错退出，而是返回状态码，由调用者决定是否报错或使用降级方案
+    return 1
 }

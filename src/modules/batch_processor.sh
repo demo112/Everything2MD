@@ -8,12 +8,18 @@ process_batch() {
     local output_dir="$2"
     
     # 如果没有指定输出目录，使用默认值
+    # 但如果是通过 main.sh 自动切换过来的，$output_dir 可能是空的
+    # 此时我们希望保持原有结构，或者在同目录下生成
+    # 这里修改策略：如果未指定输出目录，则在原文件同级目录生成 .md (in-place)
+    # 或者如果用户希望输出到 output 子目录，则保持原逻辑。
+    # 根据用户习惯 "同目录下生成同名.md"，我们这里稍微调整：
     if [[ -z "$output_dir" ]]; then
-        output_dir="$input_dir/output"
+        # 如果未指定输出目录，则遍历时直接在源文件同目录生成
+        output_dir="" 
+    else
+        # 创建输出目录
+        mkdir -p "$output_dir"
     fi
-    
-    # 创建输出目录
-    mkdir -p "$output_dir"
     
     # 检查输入目录是否存在
     if [[ ! -d "$input_dir" ]]; then
@@ -37,11 +43,15 @@ process_batch() {
         ((file_count++))
         
         # 生成输出文件路径
-        local relative_path="${file#$input_dir/}"
-        local output_file="$output_dir/${relative_path%.*}.md"
-        
-        # 创建输出文件的目录
-        mkdir -p "$(dirname "$output_file")"
+        local output_file=""
+        if [[ -z "$output_dir" ]]; then
+            output_file="${file%.*}.md"
+        else
+            local relative_path="${file#$input_dir/}"
+            output_file="$output_dir/${relative_path%.*}.md"
+            # 创建输出文件的目录
+            mkdir -p "$(dirname "$output_file")"
+        fi
         
         # 处理单个文件
         if process_single_file "$file" "$output_file"; then

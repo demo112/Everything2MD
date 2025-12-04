@@ -28,6 +28,15 @@ Everything2MD 是一个强大的文档转换工具，可以将各种格式的文
 
 ## 安装说明
 
+### Windows 可执行文件 (推荐)
+
+无需配置 Python 或 Bash 环境，直接运行打包好的 EXE 文件。
+
+1. **获取程序**: 位于 `dist/Everything2MD.exe`。
+2. **依赖准备**: 
+   - 需安装 [LibreOffice](https://www.libreoffice.org/) 以支持 Office 文档转换。
+   - 程序会自动探测 LibreOffice 路径，或在界面中手动指定。
+
 ### 源码运行（开发用途）
 
 1. 确保系统已安装 Bash 4.0 或更高版本：
@@ -55,26 +64,78 @@ Everything2MD 是一个强大的文档转换工具，可以将各种格式的文
    ```
 3. 克隆或下载本项目代码
 
+## 开发与测试
+
+本项目包含 Python 接口/单元测试和 Shell 脚本集成测试。
+
+### 运行测试 (Windows)
+使用 PowerShell 运行测试脚本：
+
+```powershell
+# 运行所有测试
+.\run_tests.ps1
+
+# 仅运行 Python 测试
+.\run_tests.ps1 test-python
+
+# 仅运行 Shell 测试 (需安装 Git Bash)
+.\run_tests.ps1 test-bats
+```
+
+### 运行测试 (Linux/macOS)
+使用 Make 命令：
+
+```bash
+make test
+```
+
 ## 使用方法
 
 ### Docker 运行（推荐）
 
-```bash
-# 1) 构建镜像（国内环境建议使用国内镜像源与加速）
-docker build -t everything2md:latest .
+本项目提供 `docker-compose.yml` 以简化部署与运行。
 
-# 2) 挂载输入输出目录并执行转换（设置时区与UTF-8编码）
-docker run --rm \
-  -e TZ=Asia/Shanghai \
-  -v "$PWD/input":/work/input \
-  -v "$PWD/output":/work/output \
-  everything2md:latest \
-  ./src/main.sh -i /work/input/Untitled\ 1.doc -o /work/output/out.md
+```bash
+# 1. 启动服务（后台运行）
+docker compose up -d
+
+# 2. 访问 Web 界面
+# 打开浏览器访问 http://localhost:8000
+
+# 3. 停止服务
+docker compose down
 ```
 
-说明：
-- 推荐在 Docker 守护进程配置 `registry-mirrors`（如阿里云/腾讯云）以加速镜像拉取。
-- 容器内已设置 `TZ=Asia/Shanghai` 与 `LANG/LC_ALL` 为 UTF-8，避免中文乱码。
+### Docker 开发与更新指南
+
+当代码、功能或配置发生变更后，请遵循以下步骤制作并在 Docker 中运行最新的镜像：
+
+#### 1. 代码或配置变更
+如果仅修改了 `src/` 或 `web/` 下的代码，或 `config/` 下的配置文件：
+- 大多数情况下，如果是开发模式（挂载了卷），代码变更会即时生效（取决于是否开启热重载）。
+- 如果需要重新打包镜像发布，请执行构建命令。
+
+#### 2. 依赖或 Dockerfile 变更
+如果修改了 `requirements.txt`、`Dockerfile` 或需要强制更新环境：
+
+```bash
+# 1. 重新构建镜像
+# Docker 会自动检测变化。如果修改了 Dockerfile 或 requirements.txt，会自动重装依赖。
+# 如果只修改了代码，Docker 会利用缓存加速构建。
+docker compose build
+
+# 2. 重启容器应用新镜像
+# 建议先停止并移除旧容器，确保干净启动
+docker compose down
+docker compose up -d
+
+# 或者使用一条命令完成构建与重启（强制重建容器）
+docker compose up -d --build --force-recreate
+```
+
+#### 3. 验证更新
+- 查看容器日志：`docker compose logs -f`
+- 进入容器检查：`docker compose exec everything2md bash`
 
 ### 源码运行
 
@@ -114,10 +175,15 @@ log_level=INFO
 ```
 Everything2MD/
 ├── src/                     # 源代码目录
-│   ├── main.sh              # 主程序入口
+│   ├── core/                # [New] Python 核心逻辑 (去 Shell 化)
+│   │   ├── config.py        # 配置管理
+│   │   ├── engine.py        # 转换引擎
+│   │   ├── utils.py         # 通用工具
+│   │   └── converters/      # 格式转换器
+│   ├── main.sh              # [Legacy] Shell 主程序入口
 │   ├── gui/                 # Tkinter 图形界面
-│   │   └── main.py          # GUI 主入口
-│   └── modules/             # 功能模块
+│   │   └── main.py          # GUI 主入口 (已适配 Python Core)
+│   └── modules/             # [Legacy] Shell 功能模块
 │       ├── argument_parser.sh      # 参数解析模块
 │       ├── batch_processor.sh      # 批量处理模块
 │       ├── config_manager.sh       # 配置管理模块

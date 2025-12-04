@@ -7,6 +7,11 @@ yarn-error.log*
 # Build outputs
 build/dist/
 build/temp/
+dist/
+*.exe
+*.7z
+tools/pandoc*
+web-ui/build/
 
 # Logs
 *.log

@@ -2,18 +2,6 @@
 
 # PPT转换器模块
 
-# 检查LibreOffice是否已安装
-check_libreoffice_installed() {
-    if command -v libreoffice >/dev/null 2>&1; then
-        return 0
-    fi
-    if command -v soffice >/dev/null 2>&1; then
-        return 0
-    fi
-    handle_error "LibreOffice未安装，请先安装LibreOffice"
-    return 1
-}
-
 # 使用LibreOffice将PPT文件转换为Markdown
 convert_ppt_to_md() {
     local input_file="$1"

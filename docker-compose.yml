@@ -3,16 +3,28 @@ version: '3'
 services:
   everything2md:
     build: .
-    image: everything2md:latest
+    image: everything2md:2214
     container_name: everything2md
     volumes:
       - .:/work
       - ./data/input:/work/input
       - ./data/output:/work/output
+      # 挂载宿主机盘符以支持访问所有路径
+      - c:/:/mnt/c
+      - d:/:/mnt/d
+      - e:/:/mnt/e
+      - f:/:/mnt/f
     environment:
       - TZ=Asia/Shanghai
       - LANG=C.UTF-8
       - LC_ALL=C.UTF-8
+      # 允许 uvicorn 在容器内绑定到 0.0.0.0
+      - HOST=0.0.0.0
+    ports:
+      - "8000:8000"
+    # 启动 Web 服务，并支持热重载
+    command: uvicorn web.backend.main:app --host 0.0.0.0 --port 8000 --reload
     tty: true
     stdin_open: true
     restart: unless-stopped
+ 

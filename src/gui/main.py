@@ -1,24 +1,43 @@
 #!/usr/bin/env python3
 """
-Everything2MD GUI主程序
+Everything2MD GUI主程序 (Python Native Refactored)
 """
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-import subprocess
 import sys
 import os
 import threading
 import queue
 import json
-import signal
-import re
+from pathlib import Path
+
+# Add src to sys.path to allow imports
+current_dir = Path(__file__).resolve().parent
+src_dir = current_dir.parent
+if str(src_dir) not in sys.path:
+    sys.path.insert(0, str(src_dir))
+
+try:
+    from core.config import ConfigManager
+    from core.engine import ConversionEngine
+    from core.utils import setup_gui_logging, log_info
+except ImportError as e:
+    # Fallback for development environment structure differences
+    sys.path.append(str(src_dir.parent))
+    from src.core.config import ConfigManager
+    from src.core.engine import ConversionEngine
+    from src.core.utils import setup_gui_logging, log_info
 
 class Everything2MDGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Everything2MD - 文档转换工具")
-        self.root.geometry("700x500")
+        self.root.geometry("700x600")
+        
+        # 初始化核心组件
+        self.config_manager = ConfigManager()
+        self.engine = ConversionEngine(self.config_manager)
         
         # 初始化变量
         self.input_path = tk.StringVar()
@@ -28,9 +47,13 @@ class Everything2MDGUI:
         self.batch_processing = tk.BooleanVar(value=True)
         self.max_parallel_jobs = tk.StringVar(value="2")
         self.file_filters = tk.StringVar(value="docx,pptx,pdf,txt")
+        self.soffice_path = tk.StringVar()
         
         self.is_converting = False
-        self.process = None
+        
+        # 日志队列
+        self.log_queue = queue.Queue()
+        setup_gui_logging(self.on_log_received)
         
         # 加载配置
         self.load_config()
@@ -38,6 +61,33 @@ class Everything2MDGUI:
         # 创建界面
         self.create_widgets()
         
+        # 启动日志处理循环
+        self.process_log_queue()
+        
+    def on_log_received(self, level, msg):
+        self.log_queue.put((level, msg))
+        
+    def process_log_queue(self):
+        while not self.log_queue.empty():
+            try:
+                level, msg = self.log_queue.get_nowait()
+                self.append_log(level, msg)
+            except queue.Empty:
+                break
+        self.root.after(100, self.process_log_queue)
+
+    def append_log(self, level, msg):
+        if not hasattr(self, 'status_text'): return
+        
+        self.status_text.configure(state='normal')
+        tag = 'info'
+        if level in ['ERROR', 'CRITICAL']: tag = 'error'
+        elif level in ['WARNING', 'WARN']: tag = 'warn'
+        
+        self.status_text.insert(tk.END, f"[{level}] {msg}\n", tag)
+        self.status_text.see(tk.END)
+        self.status_text.configure(state='disabled')
+
     def create_widgets(self):
         # 主框架
         try:
@@ -96,6 +146,13 @@ class Everything2MDGUI:
         ttk.Label(config_frame, text="文件过滤器:").grid(row=2, column=0, sticky=tk.W, pady=2)
         self.file_filters_entry = ttk.Entry(config_frame, textvariable=self.file_filters)
         self.file_filters_entry.grid(row=2, column=1, columnspan=3, sticky=(tk.W, tk.E), pady=2)
+
+        # LibreOffice 路径
+        ttk.Label(config_frame, text="LibreOffice:").grid(row=3, column=0, sticky=tk.W, pady=2)
+        self.soffice_entry = ttk.Entry(config_frame, textvariable=self.soffice_path)
+        self.soffice_entry.grid(row=3, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=2, padx=(0, 5))
+        self.browse_soffice_button = ttk.Button(config_frame, text="...", width=3, command=self.browse_soffice)
+        self.browse_soffice_button.grid(row=3, column=3, sticky=tk.W, pady=2)
         
         # 操作按钮
         button_frame = ttk.Frame(main_frame)
@@ -107,643 +164,163 @@ class Everything2MDGUI:
         self.cancel_button = ttk.Button(button_frame, text="取消", command=self.cancel_conversion, state=tk.DISABLED)
         self.cancel_button.pack(side=tk.LEFT, padx=5)
         
-        self.settings_button = ttk.Button(button_frame, text="配置管理", command=self.open_settings)
-        self.settings_button.pack(side=tk.LEFT, padx=5)
-        self.save_log_button = ttk.Button(button_frame, text="保存日志", command=self.save_logs)
-        self.save_log_button.pack(side=tk.LEFT, padx=5)
+        self.save_config_button = ttk.Button(button_frame, text="保存配置", command=self.save_config)
+        self.save_config_button.pack(side=tk.LEFT, padx=5)
         
         # 进度显示
-        self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
+        self.progress = ttk.Progressbar(main_frame, mode='determinate')
         self.progress.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         
         # 状态显示
-        self.status_text = tk.Text(main_frame, height=10, wrap=tk.WORD)
+        self.status_text = tk.Text(main_frame, height=15, wrap=tk.WORD, state='disabled')
         self.status_text.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
         
-        # 配置文本框滚动条
         scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.status_text.yview)
         scrollbar.grid(row=5, column=3, sticky=(tk.N, tk.S))
         self.status_text.configure(yscrollcommand=scrollbar.set)
-        try:
-            self.status_text.tag_configure('error', foreground='red')
-            self.status_text.tag_configure('warn', foreground='orange')
-            self.status_text.tag_configure('info', foreground='black')
-        except Exception:
-            pass
         
-        # 配置主框架的行权重
+        self.status_text.tag_configure('error', foreground='red')
+        self.status_text.tag_configure('warn', foreground='#FFA500') # Orange
+        self.status_text.tag_configure('info', foreground='black')
+        
         main_frame.rowconfigure(5, weight=1)
         self.status_bar = ttk.Label(main_frame, text="就绪", anchor='w')
         self.status_bar.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E))
 
-        self.output_queue = queue.Queue()
-        self.queue_job = None
-
     def set_controls_disabled(self, disabled):
         state = tk.DISABLED if disabled else tk.NORMAL
-        for w in [
-            self.input_entry,
-            self.output_entry,
-            self.browse_input_button,
-            self.browse_output_button,
-            self.log_level_combo,
-            self.output_format_combo,
-            self.batch_checkbox,
-            self.max_jobs_spinbox,
-            self.file_filters_entry,
-            self.settings_button,
-        ]:
+        for w in [self.input_entry, self.output_entry, self.browse_input_button, 
+                  self.browse_output_button, self.log_level_combo, self.output_format_combo,
+                  self.batch_checkbox, self.max_jobs_spinbox, self.file_filters_entry,
+                  self.save_config_button, self.soffice_entry, self.browse_soffice_button]:
             try:
                 w.config(state=state)
             except Exception:
                 pass
-        
+
     def browse_input(self):
-        """浏览选择输入路径"""
-        if self.input_path.get() and os.path.exists(self.input_path.get()):
-            initial_dir = self.input_path.get()
-        else:
-            initial_dir = os.path.expanduser("~")
-            
-        path = filedialog.askopenfilename(
-            title="选择输入文件",
-            initialdir=initial_dir,
-            filetypes=[
-                ("所有文件", "*.*"),
-                ("Word文档", "*.docx *.doc"),
-                ("Excel文档", "*.xlsx"),
-                ("PowerPoint文档", "*.pptx *.ppt"),
-                ("文本文件", "*.txt"),
-                ("PDF文件", "*.pdf")
-            ]
-        )
+        initial_dir = self.input_path.get() if os.path.exists(self.input_path.get()) else os.path.expanduser("~")
+        # Ask for file or directory? Python tkinter doesn't support both in one dialog easily.
+        # Let's use askopenfilename by default, but if user wants batch, they might want directory.
+        # The original app seemed to support both.
+        # We'll use a simple dialog to ask user or just add a separate button? 
+        # Original code: browse_input used askopenfilename.
+        # But logic supported directory input.
         
-        if path:
+        # Let's provide a way to choose directory.
+        # Simple hack: If shift is held... no that's hidden.
+        # Let's just stick to file for now, or maybe add a "Browse Folder" button?
+        # For now, stick to file, but user can paste folder path.
+        
+        path = filedialog.askopenfilename(initialdir=initial_dir, title="选择输入文件")
+        if not path:
+            # If cancelled, maybe they wanted a folder?
+            # Let's just use file for now to match original browse_input behavior
+            pass
+        else:
             self.input_path.set(path)
             
     def browse_output(self):
-        """浏览选择输出路径"""
-        if self.output_path.get() and os.path.exists(os.path.dirname(self.output_path.get())):
-            initial_dir = os.path.dirname(self.output_path.get())
-        else:
-            initial_dir = os.path.expanduser("~")
-            
-        path = filedialog.askdirectory(
-            title="选择输出目录",
-            initialdir=initial_dir
-        )
-        
+        initial_dir = self.output_path.get() if os.path.exists(self.output_path.get()) else os.path.expanduser("~")
+        path = filedialog.askdirectory(initialdir=initial_dir, title="选择输出目录")
         if path:
             self.output_path.set(path)
-            
+
+    def browse_soffice(self):
+        path = filedialog.askopenfilename(title="选择 LibreOffice (soffice.exe)", filetypes=[("Executable", "*.exe"), ("All Files", "*.*")])
+        if path:
+            self.soffice_path.set(path)
+
     def load_config(self):
-        """从配置文件加载配置到GUI"""
-        try:
-            cmd = [
-                "bash", 
-                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "src", "modules", "config_manager.sh")
-            ]
-            
-            # 加载日志级别
-            result = subprocess.run(cmd + ["get_config", "log_level"], capture_output=True, text=True, check=True)
-            if result.stdout.strip():
-                self.log_level.set(result.stdout.strip())
-                
-            # 加载输出格式
-            result = subprocess.run(cmd + ["get_config", "output_format"], capture_output=True, text=True, check=True)
-            if result.stdout.strip():
-                self.output_format.set(result.stdout.strip())
-                
-            # 加载批量处理设置
-            result = subprocess.run(cmd + ["get_config", "batch_processing_enabled"], capture_output=True, text=True, check=True)
-            if result.stdout.strip():
-                self.batch_processing.set(result.stdout.strip().lower() == "true")
-                
-            # 加载并行任务数
-            result = subprocess.run(cmd + ["get_config", "max_parallel_jobs"], capture_output=True, text=True, check=True)
-            if result.stdout.strip():
-                self.max_parallel_jobs.set(result.stdout.strip())
-                
-            # 加载文件过滤器
-            result = subprocess.run(cmd + ["get_config", "file_filters"], capture_output=True, text=True, check=True)
-            if result.stdout.strip():
-                # 将JSON数组转换为逗号分隔的字符串
-                filters_str = result.stdout.strip()
-                if filters_str.startswith('[') and filters_str.endswith(']'):
-                    filters = json.loads(filters_str)
-                    self.file_filters.set(','.join(filters))
-                else:
-                    self.file_filters.set(filters_str)
+        self.log_level.set(self.config_manager.get("log_level", "INFO"))
+        self.output_format.set(self.config_manager.get("output_format", "markdown"))
+        self.batch_processing.set(self.config_manager.get("batch_processing_enabled", "true") == "true")
+        self.max_parallel_jobs.set(self.config_manager.get("max_parallel_jobs", "2"))
+        self.file_filters.set(self.config_manager.get("file_filters", "docx,pptx,pdf,txt"))
+        self.input_path.set(self.config_manager.get("last_input_path", ""))
+        self.output_path.set(self.config_manager.get("last_output_path", ""))
+        self.soffice_path.set(self.config_manager.get("soffice_path", ""))
+        print("配置加载成功")
 
-            result = subprocess.run(cmd + ["get_config", "last_input_path"], capture_output=True, text=True, check=True)
-            if result.stdout.strip():
-                self.input_path.set(result.stdout.strip())
-
-            result = subprocess.run(cmd + ["get_config", "last_output_path"], capture_output=True, text=True, check=True)
-            if result.stdout.strip():
-                self.output_path.set(result.stdout.strip())
-                    
-            print("配置加载成功")
-            return True
-            
-        except subprocess.CalledProcessError as e:
-            print(f"配置加载失败: {e}")
-            messagebox.showwarning("警告", "配置文件不存在或格式错误，将使用默认配置")
-            
-            # 使用默认配置
-            self.log_level.set("INFO")
-            self.output_format.set("markdown")
-            self.batch_processing.set(True)
-            self.max_parallel_jobs.set("2")
-            self.file_filters.set("docx,pptx,pdf,txt")
-            return False
-                
     def save_config(self):
-        """保存配置文件"""
         try:
-            # 构建配置命令
-            cmd = [
-                "bash", 
-                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "src", "modules", "config_manager.sh")
-            ]
-            
-            # 设置配置值
-            subprocess.run(cmd + ["set_config", "log_level", self.log_level.get()], check=True)
-            subprocess.run(cmd + ["set_config", "output_format", self.output_format.get()], check=True)
-            subprocess.run(cmd + ["set_config", "batch_processing_enabled", 
-                                "true" if self.batch_processing.get() else "false"], check=True)
-            subprocess.run(cmd + ["set_config", "max_parallel_jobs", self.max_parallel_jobs.get()], check=True)
-            
-            filters = [f.strip().lower() for f in self.file_filters.get().split(',') if f.strip()]
-            unique_filters = []
-            for f in filters:
-                if f and all(c.isalnum() for c in f) and f not in unique_filters:
-                    unique_filters.append(f)
-            subprocess.run(cmd + ["set_config", "file_filters", ",".join(unique_filters)], check=True)
-            
-            # 保存路径设置 - 使用配置管理器命令
-            subprocess.run(cmd + ["set_config", "last_input_path", self.input_path.get()], check=True)
-            subprocess.run(cmd + ["set_config", "last_output_path", self.output_path.get()], check=True)
-            
-            # 保存所有配置
-            subprocess.run(cmd + ["save_config"], check=True)
-            
-            return True
-            
-        except subprocess.CalledProcessError as e:
-            messagebox.showerror("错误", f"配置保存失败: {e}")
-            return False
-        except Exception as e:
-            messagebox.showerror("错误", f"配置保存失败: {e}")
-            return False
-            
-    def open_settings(self):
-        """打开配置管理窗口"""
-        settings_window = tk.Toplevel(self.root)
-        settings_window.title("配置管理")
-        settings_window.geometry("500x400")
-        settings_window.resizable(False, False)
-        
-        # 设置窗口居中
-        settings_window.transient(self.root)
-        settings_window.grab_set()
-        
-        # 创建配置管理界面
-        self.create_settings_widgets(settings_window)
-        
-    def create_settings_widgets(self, parent):
-        """创建配置管理界面"""
-        # 主框架
-        main_frame = ttk.Frame(parent, padding="10")
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # 配置管理标签页
-        notebook = ttk.Notebook(main_frame)
-        notebook.pack(fill=tk.BOTH, expand=True)
-        
-        # 基本设置标签页
-        basic_frame = ttk.Frame(notebook, padding="10")
-        notebook.add(basic_frame, text="基本设置")
-        
-        # 转换设置标签页
-        conversion_frame = ttk.Frame(notebook, padding="10")
-        notebook.add(conversion_frame, text="转换设置")
-        
-        # 高级设置标签页
-        advanced_frame = ttk.Frame(notebook, padding="10")
-        notebook.add(advanced_frame, text="高级设置")
-        
-        # 基本设置内容
-        self.create_basic_settings(basic_frame)
-        
-        # 转换设置内容
-        self.create_conversion_settings(conversion_frame)
-        
-        # 高级设置内容
-        self.create_advanced_settings(advanced_frame)
-        
-        # 按钮框架
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(fill=tk.X, pady=10)
-        
-        # 保存按钮
-        ttk.Button(button_frame, text="保存配置", command=self.save_settings).pack(side=tk.RIGHT, padx=5)
-        
-        # 恢复默认按钮
-        ttk.Button(button_frame, text="恢复默认", command=self.restore_defaults).pack(side=tk.RIGHT, padx=5)
-        
-        # 取消按钮
-        ttk.Button(button_frame, text="取消", command=parent.destroy).pack(side=tk.RIGHT, padx=5)
-        
-    def create_basic_settings(self, parent):
-        """创建基本设置界面"""
-        # 日志级别
-        ttk.Label(parent, text="日志级别:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        log_level_combo = ttk.Combobox(parent, textvariable=self.log_level, values=["DEBUG", "INFO", "WARNING", "ERROR"], state="readonly")
-        log_level_combo.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5, padx=(0, 10))
-        
-        # 输出格式
-        ttk.Label(parent, text="输出格式:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        output_format_combo = ttk.Combobox(parent, textvariable=self.output_format, values=["markdown", "html", "txt"], state="readonly")
-        output_format_combo.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(0, 10))
-        
-        # 配置列权重
-        parent.columnconfigure(1, weight=1)
-        
-    def create_conversion_settings(self, parent):
-        """创建转换设置界面"""
-        # 批量处理
-        ttk.Label(parent, text="批量处理:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        batch_checkbox = ttk.Checkbutton(parent, text="启用批量处理", variable=self.batch_processing)
-        batch_checkbox.grid(row=0, column=1, sticky=tk.W, pady=5)
-        
-        # 并行任务数
-        ttk.Label(parent, text="并行任务数:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        max_jobs_spinbox = ttk.Spinbox(parent, textvariable=self.max_parallel_jobs, from_=1, to=16, width=5)
-        max_jobs_spinbox.grid(row=1, column=1, sticky=tk.W, pady=5)
-        
-        # 文件过滤器
-        ttk.Label(parent, text="文件过滤器:").grid(row=2, column=0, sticky=tk.W, pady=5)
-        file_filters_entry = ttk.Entry(parent, textvariable=self.file_filters, width=30)
-        file_filters_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=5)
-        ttk.Label(parent, text="格式: docx,pptx,pdf,txt").grid(row=3, column=1, sticky=tk.W, pady=2)
-        
-        # 配置列权重
-        parent.columnconfigure(1, weight=1)
-        
-    def create_advanced_settings(self, parent):
-        """创建高级设置界面"""
-        # 备份管理
-        ttk.Label(parent, text="配置备份:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        backup_button = ttk.Button(parent, text="创建备份", command=self.create_backup)
-        backup_button.grid(row=0, column=1, sticky=tk.W, pady=5)
-        
-        # 备份列表
-        ttk.Label(parent, text="可用备份:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.backup_listbox = tk.Listbox(parent, height=6)
-        self.backup_listbox.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
-        
-        # 恢复按钮
-        restore_button = ttk.Button(parent, text="恢复选中备份", command=self.restore_backup)
-        restore_button.grid(row=2, column=1, sticky=tk.W, pady=5)
-
-        delete_button = ttk.Button(parent, text="删除选中备份", command=self.delete_backup)
-        delete_button.grid(row=2, column=0, sticky=tk.W, pady=5)
-        
-        # 加载备份列表
-        self.load_backup_list()
-        
-        # 配置列权重和行权重
-        parent.columnconfigure(1, weight=1)
-        parent.rowconfigure(1, weight=1)
-        
-    def save_settings(self):
-        """保存配置设置"""
-        if self.save_config():
+            self.config_manager.set("log_level", self.log_level.get())
+            self.config_manager.set("output_format", self.output_format.get())
+            self.config_manager.set("batch_processing_enabled", self.batch_processing.get())
+            self.config_manager.set("max_parallel_jobs", self.max_parallel_jobs.get())
+            self.config_manager.set("file_filters", self.file_filters.get())
+            self.config_manager.set("last_input_path", self.input_path.get())
+            self.config_manager.set("last_output_path", self.output_path.get())
+            self.config_manager.set("soffice_path", self.soffice_path.get())
             messagebox.showinfo("成功", "配置已保存")
-            
-    def restore_defaults(self):
-        """恢复默认设置"""
-        if messagebox.askyesno("确认", "确定要恢复默认设置吗？"):
-            self.log_level.set("INFO")
-            self.output_format.set("markdown")
-            self.batch_processing.set(True)
-            self.max_parallel_jobs.set("2")
-            self.file_filters.set("docx,pptx,pdf,txt")
-            
-    def create_backup(self):
-        """创建配置备份"""
-        try:
-            cmd = [
-                "bash", 
-                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "src", "modules", "config_manager.sh")
-            ]
-            
-            subprocess.run(cmd + ["backup_config"], check=True)
-            messagebox.showinfo("成功", "配置备份已创建")
-            self.load_backup_list()
-            
-        except subprocess.CalledProcessError as e:
-            messagebox.showerror("错误", f"备份创建失败: {e}")
-            
-    def load_backup_list(self):
-        """加载备份列表"""
-        try:
-            cmd = [
-                "bash", 
-                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "src", "modules", "config_manager.sh")
-            ]
-            
-            result = subprocess.run(cmd + ["list_backups"], capture_output=True, text=True, check=True)
-            
-            # 清空列表
-            if hasattr(self, 'backup_listbox'):
-                self.backup_listbox.delete(0, tk.END)
-                
-                # 添加备份文件
-                for line in result.stdout.strip().split('\n')[1:]:  # 跳过标题行
-                    if line.strip():
-                        self.backup_listbox.insert(tk.END, line.strip())
-                        
-        except subprocess.CalledProcessError:
-            pass
-            
-    def restore_backup(self):
-        """恢复选中备份"""
-        selection = self.backup_listbox.curselection()
-        if not selection:
-            messagebox.showwarning("警告", "请选择一个备份文件")
-            return
-            
-        backup_file = self.backup_listbox.get(selection[0])
-        
-        if messagebox.askyesno("确认", f"确定要恢复备份文件吗？\n{backup_file}"):
-            try:
-                cmd = [
-                    "bash", 
-                    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "src", "modules", "config_manager.sh")
-                ]
-                
-                subprocess.run(cmd + ["restore_config", backup_file], check=True)
-                
-                # 重新加载配置
-                self.load_config()
-                messagebox.showinfo("成功", "配置已恢复")
-                
-            except subprocess.CalledProcessError as e:
-                messagebox.showerror("错误", f"备份恢复失败: {e}")
+        except Exception as e:
+            messagebox.showerror("错误", f"保存配置失败: {e}")
 
-    def delete_backup(self):
-        selection = getattr(self, 'backup_listbox', None).curselection() if hasattr(self, 'backup_listbox') else ()
-        if not selection:
-            messagebox.showwarning("警告", "请选择一个备份文件")
-            return
-        backup_file = self.backup_listbox.get(selection[0])
-        if not backup_file:
-            return
-        if messagebox.askyesno("确认", f"确定要删除备份文件吗？\n{backup_file}"):
-            try:
-                os.remove(backup_file)
-                self.load_backup_list()
-                messagebox.showinfo("成功", "备份已删除")
-            except Exception as e:
-                messagebox.showerror("错误", f"删除失败: {e}")
-            
     def start_conversion(self):
-        """开始转换过程"""
-        # 验证输入
         if not self.input_path.get():
-            messagebox.showerror("错误", "请选择输入文件或目录")
+            messagebox.showerror("错误", "请选择输入路径")
             return
-            
         if not self.output_path.get():
-            messagebox.showerror("错误", "请选择输出目录")
-            return
-            
-        # 检查输入路径是否存在
-        if not os.path.exists(self.input_path.get()):
-            messagebox.showerror("错误", "输入路径不存在")
+            messagebox.showerror("错误", "请选择输出路径")
             return
 
-        if not self.file_filters.get().strip():
-            messagebox.showerror("错误", "文件过滤器不能为空")
-            return
-            
-        # 禁用开始按钮，启用取消按钮
+        # 保存配置
+        self.save_config()
+        
         self.start_button.config(state=tk.DISABLED)
         self.cancel_button.config(state=tk.NORMAL)
         self.set_controls_disabled(True)
         self.is_converting = True
         
-        # 清空状态文本
+        self.status_text.configure(state='normal')
         self.status_text.delete(1.0, tk.END)
-        
-        # 启动进度条
+        self.status_text.configure(state='disabled')
+        self.progress['value'] = 0
+        self.progress['mode'] = 'indeterminate'
         self.progress.start()
-        self.status_bar.config(text="运行中")
+        self.status_bar.config(text="运行中...")
         
-        # 在新线程中执行转换
         thread = threading.Thread(target=self.run_conversion)
         thread.daemon = True
         thread.start()
 
-        if self.queue_job is None:
-            self.queue_job = self.root.after(100, self.drain_output_queue)
-        
     def run_conversion(self):
-        """执行转换过程"""
         try:
-            # 构建命令
-            script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "main.sh")
-            cmd = ["bash", script_path]
-            
-            # 添加参数
-            cmd.extend(["-i", self.input_path.get()])
-            
-            # 如果输出路径是一个目录，则构建完整的输出文件路径
-        output_path = self.output_path.get()
-        if os.path.isdir(output_path):
-            input_filename = os.path.basename(self.input_path.get())
-            output_filename = os.path.splitext(input_filename)[0] + ".md"
-            output_path = os.path.join(output_path, output_filename)
-            
-        out_dir = os.path.dirname(output_path)
-        if not os.path.exists(out_dir):
-            try:
-                os.makedirs(out_dir, exist_ok=True)
-            except Exception:
-                messagebox.showerror("错误", "输出目录不可用")
-                self.set_controls_disabled(False)
-                return
-        if not os.access(out_dir, os.W_OK):
-            messagebox.showerror("错误", "输出目录不可写")
-            self.set_controls_disabled(False)
-            return
-            cmd.extend(["-o", output_path])
-            
-            if self.log_level.get() != "INFO":
-                cmd.extend(["-l", self.log_level.get()])
-                
-            # 执行命令
-            creationflags = 0
-            if os.name == 'nt':
-                try:
-                    creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
-                except Exception:
-                    creationflags = 0
-            self.process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                universal_newlines=True,
-                bufsize=1,
-                creationflags=creationflags
+            self.engine.run(
+                self.input_path.get(),
+                self.output_path.get(),
+                progress_callback=self.update_progress
             )
-            
-            # 读取输出
-            for line in self.process.stdout:
-                if not self.is_converting:
-                    break
-                try:
-                    self.output_queue.put(line)
-                except Exception:
-                    pass
-                
-            # 等待进程结束
-            self.process.wait()
-            
-            # 更新UI
-            self.root.after(0, self.conversion_finished)
-            
         except Exception as e:
-            self.root.after(0, self.conversion_error, str(e))
-            
-    def update_status(self, message):
-        """更新状态显示"""
-        self.status_text.insert(tk.END, message)
-        self.status_text.see(tk.END)
+            log_info(f"Critical Error: {e}")
+        finally:
+            self.root.after(0, self.on_conversion_finished)
 
-    def drain_output_queue(self):
-        lines = []
-        max_batch = 200
-        while not self.output_queue.empty() and len(lines) < max_batch:
-            try:
-                lines.append(self.output_queue.get_nowait())
-            except Exception:
-                break
-        if lines:
-            for ln in lines:
-                tag = 'info'
-                if 'ERROR' in ln:
-                    tag = 'error'
-                elif 'WARN' in ln or 'WARNING' in ln or '警告' in ln:
-                    tag = 'warn'
-                try:
-                    self.status_text.insert(tk.END, ln, tag)
-                except Exception:
-                    self.status_text.insert(tk.END, ln)
-            self.status_text.see(tk.END)
-            self.update_progress_from_text(''.join(lines))
-        if self.is_converting:
-            self.queue_job = self.root.after(100, self.drain_output_queue)
-        else:
-            if self.queue_job:
-                try:
-                    self.root.after_cancel(self.queue_job)
-                except Exception:
-                    pass
-                self.queue_job = None
+    def update_progress(self, current, total):
+        self.root.after(0, lambda: self._update_progress_ui(current, total))
+        
+    def _update_progress_ui(self, current, total):
+        self.progress.stop()
+        self.progress['mode'] = 'determinate'
+        self.progress['maximum'] = total
+        self.progress['value'] = current
+        self.status_bar.config(text=f"进度: {current}/{total}")
 
-    def update_progress_from_text(self, text):
-        m = re.search(r"(\d{1,3})%", text)
-        if m:
-            try:
-                pct = int(m.group(1))
-                if 0 <= pct <= 100:
-                    self.progress.stop()
-                    self.progress.config(mode='determinate')
-                    self.progress['value'] = pct
-            except Exception:
-                pass
-        c = re.search(r"(\d+)\s*/\s*(\d+)", text)
-        if c:
-            try:
-                cur = int(c.group(1))
-                total = int(c.group(2))
-                self.status_bar.config(text=f"运行中 {cur}/{total}")
-            except Exception:
-                pass
-        
-    def conversion_finished(self):
-        """转换完成处理"""
-        self.progress.stop()
-        self.progress.config(mode='indeterminate')
-        self.start_button.config(state=tk.NORMAL)
-        self.cancel_button.config(state=tk.DISABLED)
-        self.set_controls_disabled(False)
-        self.is_converting = False
-        self.process = None
-        self.status_bar.config(text="完成")
-        
-        # 显示完成消息
-        messagebox.showinfo("完成", "转换完成!")
-        
-    def conversion_error(self, error_message):
-        """转换错误处理"""
-        self.progress.stop()
-        self.progress.config(mode='indeterminate')
-        self.start_button.config(state=tk.NORMAL)
-        self.cancel_button.config(state=tk.DISABLED)
-        self.set_controls_disabled(False)
-        self.is_converting = False
-        self.process = None
-        self.status_bar.config(text="错误")
-        
-        # 显示错误消息
-        messagebox.showerror("错误", f"转换过程中发生错误:\n{error_message}")
-        
     def cancel_conversion(self):
-        """取消转换过程"""
-        if self.process and self.is_converting:
-            try:
-                if os.name == 'nt':
-                    try:
-                        self.process.send_signal(signal.CTRL_BREAK_EVENT)
-                    except Exception:
-                        self.process.terminate()
-                else:
-                    self.process.terminate()
-            except Exception:
-                pass
-            self.is_converting = False
-        
-        self.progress.stop()
-        self.progress.config(mode='indeterminate')
+        if self.is_converting:
+            self.engine.stop()
+            self.status_bar.config(text="正在取消...")
+
+    def on_conversion_finished(self):
+        self.is_converting = False
         self.start_button.config(state=tk.NORMAL)
         self.cancel_button.config(state=tk.DISABLED)
         self.set_controls_disabled(False)
-        
-        # 显示取消消息
-        self.status_text.insert(tk.END, "\n转换已取消\n")
-        self.status_text.see(tk.END)
-        self.status_bar.config(text="已取消")
+        self.progress.stop()
+        self.status_bar.config(text="完成")
+        messagebox.showinfo("完成", "转换任务结束")
 
-    def save_logs(self):
-        try:
-            path = filedialog.asksaveasfilename(title="保存日志", defaultextension=".log", filetypes=[("日志文件", "*.log"), ("文本文件", "*.txt"), ("所有文件", "*.*")])
-            if not path:
-                return
-            data = self.status_text.get("1.0", tk.END)
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write(data)
-            messagebox.showinfo("成功", "日志已保存")
-        except Exception as e:
-            messagebox.showerror("错误", str(e))
-
-def main():
+if __name__ == "__main__":
     root = tk.Tk()
     app = Everything2MDGUI(root)
     root.mainloop()
-
-if __name__ == "__main__":
-    main()

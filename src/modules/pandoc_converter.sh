@@ -31,7 +31,9 @@ convert_with_pandoc() {
     fi
     
     # 添加目标格式参数
-    pandoc_cmd+=" -t markdown"
+    # 使用 gfm (GitHub Flavored Markdown) 并禁用 raw_html 扩展
+    # 同时应用 Lua 过滤器进行深度清理 (移除 Span/Div/RawHtml)
+    pandoc_cmd+=" -t gfm-raw_html --lua-filter=\"$SCRIPT_DIR/filters/clean.lua\""
     
     # 添加输入和输出文件参数
     pandoc_cmd+=" \"$input_file\" -o \"$output_path\""

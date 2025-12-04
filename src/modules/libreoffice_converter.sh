@@ -2,18 +2,6 @@
 
 # LibreOffice转换器模块
 
-# 检查LibreOffice是否已安装
-check_libreoffice_installed() {
-    if command -v libreoffice >/dev/null 2>&1; then
-        return 0
-    fi
-    if command -v soffice >/dev/null 2>&1; then
-        return 0
-    fi
-    handle_error "LibreOffice未安装，请先安装LibreOffice"
-    return 1
-}
-
 # 使用LibreOffice将Office文档转换为Markdown
 convert_office_to_md() {
     local input_file="$1"
@@ -21,6 +9,14 @@ convert_office_to_md() {
     
     # 检查LibreOffice是否已安装
     if ! check_libreoffice_installed; then
+        # 降级策略：如果是DOCX且有Pandoc，尝试直接转换
+        if [[ "$input_file" == *.docx ]] && command -v pandoc >/dev/null 2>&1; then
+            log_warn "LibreOffice不可用，尝试使用Pandoc直接转换DOCX: $input_file"
+            convert_with_pandoc "$input_file" "$output_path" "docx"
+            return $?
+        fi
+        
+        handle_error "LibreOffice未安装且无替代转换方案，无法转换: $input_file"
         return 1
     fi
     
@@ -80,7 +76,18 @@ convert_office_to_md() {
     
     # 使用Pandoc将HTML转换为Markdown
     if command -v pandoc >/dev/null 2>&1; then
-        pandoc -f html -t markdown "$html_file" -o "$output_path"
+        # 使用 gfm-raw_html 格式 + Lua Filter 以彻底去除冗余属性和标签
+        pandoc -f html -t gfm-raw_html --lua-filter="$SCRIPT_DIR/filters/clean.lua" "$html_file" -o "$output_path"
+        
+        # 双重保险：使用 sed 暴力清理残留的 <span lang=...> 和 </span> 标签
+        if [[ -f "$output_path" ]]; then
+            # 去除 <span ...> 标签（非贪婪匹配较难，用简单正则匹配 lang 属性）
+            sed -i 's/<span[^>]*>//g' "$output_path"
+            sed -i 's/<\/span>//g' "$output_path"
+            # 去除 <div ...> 标签
+            sed -i 's/<div[^>]*>//g' "$output_path"
+            sed -i 's/<\/div>//g' "$output_path"
+        fi
     else
         # 如果没有Pandoc，直接复制HTML文件
         cp "$html_file" "$output_path"
