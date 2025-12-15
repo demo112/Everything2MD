@@ -57,7 +57,17 @@ def get_soffice_path():
             cm = ConfigManager()
             custom_path = cm.get("soffice_path")
             if custom_path and os.path.exists(custom_path):
-                return custom_path
+                # If directory, try to find soffice.exe inside
+                if os.path.isdir(custom_path):
+                    candidate = os.path.join(custom_path, "program", "soffice.exe")
+                    if os.path.exists(candidate):
+                        return candidate
+                    # Or maybe directly in the folder?
+                    candidate_direct = os.path.join(custom_path, "soffice.exe")
+                    if os.path.exists(candidate_direct):
+                        return candidate_direct
+                else:
+                    return custom_path
         except Exception:
             pass
 
@@ -130,7 +140,12 @@ def get_pandoc_path():
             cm = ConfigManager()
             custom_path = cm.get("pandoc_path")
             if custom_path and os.path.exists(custom_path):
-                return custom_path
+                if os.path.isdir(custom_path):
+                     candidate = os.path.join(custom_path, "pandoc.exe")
+                     if os.path.exists(candidate):
+                         return candidate
+                else:
+                    return custom_path
         except Exception:
             pass
 

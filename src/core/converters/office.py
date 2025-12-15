@@ -22,23 +22,52 @@ class OfficeConverter(BaseConverter):
             else:
                 raise RuntimeError("LibreOffice未安装且无替代转换方案")
 
+        # Validate paths
+        if os.path.isdir(soffice_path):
+            raise RuntimeError(f"配置的 LibreOffice 路径是一个目录，请指定 soffice.exe 文件路径: {soffice_path}")
+        
+        if pandoc_path and os.path.isdir(pandoc_path):
+             raise RuntimeError(f"配置的 Pandoc 路径是一个目录，请指定 pandoc.exe 文件路径: {pandoc_path}")
+
         # 创建临时目录
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir_path = Path(temp_dir)
             
             # 复制输入文件到临时目录
             safe_input = temp_dir_path / input_path.name
-            try:
-                shutil.copy(input_path, safe_input)
-            except PermissionError:
-                # 如果文件被占用，尝试等待一下
-                log_warn(f"文件可能被占用，重试复制: {input_path}")
-                time.sleep(1)
-                shutil.copy(input_path, safe_input)
+            
+            # Retry logic for file copying
+            copy_success = False
+            last_error = None
+            for i in range(5):
+                try:
+                    if safe_input.exists():
+                        try:
+                            os.chmod(safe_input, 0o777)
+                            os.remove(safe_input)
+                        except Exception:
+                            pass
+                    shutil.copy(input_path, safe_input)
+                    copy_success = True
+                    break
+                except PermissionError as e:
+                    last_error = e
+                    log_warn(f"文件被占用，第 {i+1} 次重试: {input_path}")
+                    time.sleep(1 + i)
+                except Exception as e:
+                    last_error = e
+                    log_warn(f"复制文件失败，第 {i+1} 次重试: {e}")
+                    time.sleep(1)
+            
+            if not copy_success:
+                raise RuntimeError(f"无法复制文件到临时目录 (重试5次后失败): {last_error}")
 
             # 1. LibreOffice -> HTML (增加重试机制)
+            # 使用独立的用户配置目录以支持并发
+            user_profile = temp_dir_path / "user_profile"
             cmd = [
                 soffice_path,
+                f"-env:UserInstallation=file:///{str(user_profile).replace(os.sep, '/')}",
                 "--headless",
                 "--convert-to", "html",
                 "--outdir", str(temp_dir_path),
@@ -99,7 +128,32 @@ class OfficeConverter(BaseConverter):
         ]
         
         if lua_filter.exists():
-            cmd.insert(4, f"--lua-filter={lua_filter}")
+            # Use forward slashes for Pandoc compatibility on Windows, or escape properly
+            # The error "Error parsing format --lua-filter: unexpected '-'" suggests Pandoc might be confused 
+            # if we pass arguments in a way that splits them unexpectedly or if the path has issues.
+            # However, the previous error was "cannot open --lua-filter=C:\...". 
+            # The current error is "Error parsing format --lua-filter". 
+            # This usually happens when --lua-filter is passed as a format option or in the wrong order?
+            # Actually, the previous fix split it into two args: "--lua-filter", str(lua_filter).
+            # If the lua filter path starts with '-', it could be an issue, but it starts with 'C:'.
+            # Wait, subprocess.run list args are safe. 
+            # But "Error parsing format" usually refers to -f or -t.
+            # Let's check the cmd list construction.
+            # cmd = [pandoc_path, "-f", "html", "-t", "gfm-raw_html", str(html_path), "-o", str(output_path)]
+            # We insert at index 4. 
+            # Index 0: pandoc, 1: -f, 2: html, 3: -t, 4: gfm-raw_html
+            # So if we insert at 4, it becomes: 
+            # [pandoc, -f, html, -t, --lua-filter, filter_path, gfm-raw_html, ...]
+            # This breaks the "-t gfm-raw_html" pair! 
+            # -t expects the next arg to be the format. We inserted --lua-filter between -t and its value.
+            
+            # Fix: Insert AFTER the format definition.
+            # Original list length is 8 (0-7).
+            # We should append it or insert at a safe position (e.g., index 1).
+            # Pandoc options are order-independent mostly, but values must follow flags.
+            
+            cmd.append("--lua-filter")
+            cmd.append(str(lua_filter))
         else:
             log_warn(f"Lua filter not found at {lua_filter}")
 

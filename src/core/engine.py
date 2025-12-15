@@ -26,13 +26,24 @@ class ConversionEngine:
             return 'text'
         return None
 
-    def convert_file(self, input_path: Path, output_path: Path):
+    def convert_file(self, input_path: Path, output_path: Path, status_callback=None):
         if self.stop_flag:
             return False
+
+        if output_path.exists():
+            log_info(f"跳过已存在的文件: {output_path}")
+            if status_callback:
+                status_callback(str(input_path), "skipped", "文件已存在")
+            return output_path
+
+        if status_callback:
+            status_callback(str(input_path), "processing", "开始转换")
 
         file_type = self.detect_type(input_path)
         if not file_type:
             log_warn(f"不支持的文件类型: {input_path}")
+            if status_callback:
+                status_callback(str(input_path), "failed", "不支持的文件类型")
             return False
 
         # 确保输出目录存在
@@ -46,12 +57,17 @@ class ConversionEngine:
             elif file_type == 'text':
                 import shutil
                 shutil.copy(input_path, output_path)
-            return True
+            
+            if status_callback:
+                status_callback(str(input_path), "success", "转换成功")
+            return output_path
         except Exception as e:
             log_error(f"转换失败 {input_path}: {e}")
-            return False
+            if status_callback:
+                status_callback(str(input_path), "failed", str(e))
+            return None
 
-    def run(self, input_path_str, output_path_str, progress_callback=None):
+    def run(self, input_path_str, output_path_str, progress_callback=None, file_converted_callback=None, status_callback=None):
         self.stop_flag = False
         input_path = Path(input_path_str)
         output_path = Path(output_path_str)
@@ -97,7 +113,7 @@ class ConversionEngine:
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_file = {
-                executor.submit(self.convert_file, inp, out): inp 
+                executor.submit(self.convert_file, inp, out, status_callback): inp 
                 for inp, out in tasks
             }
 
@@ -112,7 +128,9 @@ class ConversionEngine:
                 
                 inp = future_to_file[future]
                 try:
-                    future.result()
+                    result_path = future.result()
+                    if result_path and file_converted_callback:
+                        file_converted_callback(str(result_path))
                 except Exception as e:
                     log_error(f"任务异常 {inp}: {e}")
 

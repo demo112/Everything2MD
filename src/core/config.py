@@ -4,9 +4,14 @@ import shutil
 from pathlib import Path
 
 class ConfigManager:
-    def __init__(self):
-        self.config_dir = Path.home() / ".config" / "everything2md"
-        self.config_file = self.config_dir / "config.json"
+    def __init__(self, config_path=None):
+        if config_path:
+            self.config_file = Path(config_path)
+            self.config_dir = self.config_file.parent
+        else:
+            self.config_dir = Path.home() / ".config" / "everything2md"
+            self.config_file = self.config_dir / "config.json"
+        
         self.config_data = {}
         self.load_config()
 
@@ -34,6 +39,10 @@ class ConfigManager:
                 "last_output_path": "",
                 "soffice_path": "",
                 "pandoc_path": ""
+            },
+            "ragflow_settings": {
+                "api_base_url": "http://192.168.150.76:8081",
+                "api_key": "ragflow-8DLY1LXzljiZ_WxirLd3q4NBgGrkR8Mt1ZgbfkN3zRw"
             }
         }
 
@@ -82,6 +91,10 @@ class ConfigManager:
             return self.config_data.get("path_settings", {}).get("soffice_path", default)
         elif key == "pandoc_path":
             return self.config_data.get("path_settings", {}).get("pandoc_path", default)
+        elif key == "rag_api_base":
+            return self.config_data.get("ragflow_settings", {}).get("api_base_url", default)
+        elif key == "rag_api_key":
+            return self.config_data.get("ragflow_settings", {}).get("api_key", default)
         return default
 
     def set(self, key, value):
@@ -90,6 +103,8 @@ class ConfigManager:
             self.config_data["conversion_settings"] = {}
         if "path_settings" not in self.config_data:
             self.config_data["path_settings"] = {}
+        if "ragflow_settings" not in self.config_data:
+            self.config_data["ragflow_settings"] = {}
         
         cs = self.config_data["conversion_settings"]
         
@@ -99,14 +114,16 @@ class ConfigManager:
             cs["output_format"] = value
         elif key == "batch_processing_enabled":
             if "batch_processing" not in cs: cs["batch_processing"] = {}
-            cs["batch_processing"]["enabled"] = (str(value).lower() == "true")
+            # Handle boolean/string conversion if needed, but keeping it simple
+            cs["batch_processing"]["enabled"] = value
         elif key == "max_parallel_jobs":
             if "batch_processing" not in cs: cs["batch_processing"] = {}
-            cs["batch_processing"]["max_parallel_jobs"] = int(value)
+            cs["batch_processing"]["max_parallel_jobs"] = int(value) if str(value).isdigit() else 2
         elif key == "file_filters":
             if "batch_processing" not in cs: cs["batch_processing"] = {}
+            # value should be list or comma separated string
             if isinstance(value, str):
-                cs["batch_processing"]["file_filters"] = [x.strip() for x in value.split(",") if x.strip()]
+                cs["batch_processing"]["file_filters"] = [x.strip() for x in value.split(",")]
             else:
                 cs["batch_processing"]["file_filters"] = value
         elif key == "last_input_path":
@@ -117,5 +134,9 @@ class ConfigManager:
             self.config_data["path_settings"]["soffice_path"] = value
         elif key == "pandoc_path":
             self.config_data["path_settings"]["pandoc_path"] = value
+        elif key == "rag_api_base":
+            self.config_data["ragflow_settings"]["api_base_url"] = value
+        elif key == "rag_api_key":
+            self.config_data["ragflow_settings"]["api_key"] = value
         
         self.save_config()

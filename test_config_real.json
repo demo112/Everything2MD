@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "gui_settings": {
+    "window_width": 800,
+    "window_height": 600,
+    "window_x": 100,
+    "window_y": 100,
+    "theme": "default"
+  },
+  "conversion_settings": {
+    "log_level": "INFO",
+    "output_format": "markdown",
+    "batch_processing": {
+      "enabled": true,
+      "max_parallel_jobs": 2,
+      "file_filters": [
+        "docx",
+        "pptx",
+        "pdf",
+        "txt"
+      ]
+    }
+  },
+  "path_settings": {
+    "last_input_path": "",
+    "last_output_path": "",
+    "soffice_path": "",
+    "pandoc_path": ""
+  },
+  "ragflow_settings": {
+    "api_base_url": "http://192.168.150.76:8081",
+    "api_key": "ragflow-8DLY1LXzljiZ_WxirLd3q4NBgGrkR8Mt1ZgbfkN3zRw"
+  }
+}
