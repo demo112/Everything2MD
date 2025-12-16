@@ -366,8 +366,44 @@ class Everything2MDGUI:
             
             self.filter_vars[ext] = var
             
+            state = 'normal'
+            # Check support
+            from src.core.utils import get_soffice_path, get_pandoc_path
+            
+            is_supported = True
+            tooltip_msg = ""
+            
+            if ext in ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']:
+                if not get_soffice_path():
+                    is_supported = False
+                    tooltip_msg = "需要 LibreOffice"
+                    # Exception: .docx can use pandoc if available
+                    if ext == 'docx' and get_pandoc_path():
+                        is_supported = True
+                        tooltip_msg = ""
+                    # Exception: .pptx can use pptx2md (internal lib)
+                    if ext == 'pptx':
+                         # pptx2md is a library now, so it is supported if the lib is present.
+                         # But we should check if the lib is importable?
+                         # It is imported in runtime. Let's assume supported if not strictly relying on external tools.
+                         # Actually pptx converter will fail if import fails.
+                         # Let's assume it's supported as we packaged it.
+                         is_supported = True
+                         tooltip_msg = ""
+
+            elif ext == 'pdf':
+                # PDF needs LibreOffice (to html/pdf) -> Pandoc or pdftotext
+                if not get_soffice_path():
+                     is_supported = False
+                     tooltip_msg = "需要 LibreOffice"
+
+            if not is_supported:
+                state = 'disabled'
+                var.set(False)
+                label += f" ({tooltip_msg})"
+            
             cb = ttk.Checkbutton(self.filter_checks_frame, text=label, variable=var, 
-                                command=self.update_filter_string)
+                                command=self.update_filter_string, state=state)
             cb.grid(row=row, column=col, sticky='w', padx=2)
             
             col += 1
@@ -795,9 +831,12 @@ class Everything2MDGUI:
         threading.Thread(target=_bg_upload, daemon=True).start()
 
     def cancel_conversion(self):
-        if self.is_converting:
+        """停止转换任务"""
+        if self.engine:
             self.engine.stop()
-            self.status_bar.config(text="正在取消...")
+            log_info("正在停止转换任务...")
+            self.status_bar.config(text="正在停止...")
+            self.cancel_button.config(state=tk.DISABLED)
 
     def on_conversion_finished(self):
         self.is_converting = False

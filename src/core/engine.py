@@ -16,7 +16,7 @@ class ConversionEngine:
 
     def detect_type(self, path: Path):
         suffix = path.suffix.lower()
-        if suffix in ['.docx', '.doc']:
+        if suffix in ['.docx', '.doc', '.xlsx', '.xls']:
             return 'office'
         elif suffix in ['.pptx', '.ppt']:
             return 'ppt'

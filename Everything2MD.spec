@@ -6,11 +6,11 @@ a = Analysis(
     pathex=['src'],
     binaries=[],
     datas=[('src/filters/clean.lua', 'src/filters')],
-    hiddenimports=[],
+    hiddenimports=['pptx2md', 'pptx2md.parser', 'pptx2md.outputter', 'pptx', 'PIL'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['numpy', 'scipy'],
+    excludes=[],
     noarchive=False,
     optimize=0,
 )

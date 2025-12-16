@@ -158,10 +158,26 @@ class OfficeConverter(BaseConverter):
             log_warn(f"Lua filter not found at {lua_filter}")
 
         try:
-            subprocess.run(cmd, check=True, capture_output=True)
+            # Add encoding to subprocess for Windows Chinese path support
+            # And use shell=False for safety, but check if env is needed
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "utf-8"
+            
+            subprocess.run(cmd, check=True, capture_output=True, env=env)
         except subprocess.CalledProcessError as e:
              err_msg = e.stderr.decode('utf-8', errors='ignore') if e.stderr else str(e)
-             raise RuntimeError(f"Pandoc转换Markdown失败: {err_msg}")
+             # Exit 21 is Pandoc general error, often encoding or input file issue
+             if e.returncode == 21:
+                 log_warn(f"Pandoc Exit 21: 可能是输入文件编码问题或路径字符问题。尝试回退到无 Lua 过滤器的简单模式。")
+                 # Retry without Lua filter as fallback
+                 cmd_fallback = [c for c in cmd if "lua-filter" not in c and ".lua" not in c]
+                 try:
+                     subprocess.run(cmd_fallback, check=True, capture_output=True, env=env)
+                     return
+                 except subprocess.CalledProcessError as e2:
+                     err_msg = e2.stderr.decode('utf-8', errors='ignore') if e2.stderr else str(e2)
+             
+             raise RuntimeError(f"Pandoc转换Markdown失败 (Exit {e.returncode}): {err_msg}")
 
         # Post-processing cleanup (sed equivalent)
         if output_path.exists():

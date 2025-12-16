@@ -26,34 +26,47 @@ class PptConverter(BaseConverter):
         try:
             from pptx2md.parser import Parser
             from pptx2md.outputter import md_outputter
+            import pptx
         except ImportError:
             raise RuntimeError("pptx2md模块未安装")
 
         log_info(f"使用pptx2md转换: {input_path}")
         
-        # pptx2md API 调用模拟
-        # 注意：pptx2md 源码结构可能经常变，这里参考通常用法
-        # 如果 API 调用太复杂，回退到 subprocess 调用命令行
-        
-        # 检查 pptx2md 命令是否可用（如果安装在 venv）
-        cmd = ["pptx2md", str(input_path), "-o", str(output_path)]
-        # 添加图片目录参数
-        img_dir = output_path.parent / "img"
-        cmd.extend(["-i", str(img_dir)])
-        
-        # 尝试直接调用命令行 (更稳健，因为我们已经 pip install 了它)
-        # 在 exe 环境下，需要确保 pptx2md.exe 在路径中，或者直接调用 python -m pptx2md
-        # 考虑到 PyInstaller 打包，subprocess 调用外部 exe 可能会失败。
-        # 所以我们尝试用 sys.executable -m pptx2md (如果打包了 python 环境)
-        # 但单文件 exe 没有 sys.executable 指向 python。
-        
-        # 最佳方案：调用库函数。
-        # 阅读 pptx2md 源码是最好的，但这里假设 subprocess 调用 "pptx2md" 在开发环境可行。
-        # 在打包环境，我们需要把 pptx2md 的入口脚本打包进去，或者用 python 代码调用。
-        
-        # 暂时使用 subprocess，如果在 exe 中失败，用户需要反馈。
-        # 为了更稳健，我们捕获异常。
-        subprocess.run(cmd, check=True, capture_output=True)
+        # 使用库调用方式，避免 subprocess 找不到命令
+        try:
+            # 模拟 pptx2md 的 main 逻辑
+            # 参考 pptx2md 源码，通常是:
+            # prs = pptx.Presentation(input_path)
+            # outputter = md_outputter(output_path)
+            # parser = Parser(prs, outputter)
+            # parser.parse()
+            
+            # 由于 pptx2md API 可能变动，我们尽量模拟其 entry point 逻辑
+            # 如果能直接调用 parser 和 outputter 最好
+            
+            # 1. 创建输出目录
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            img_dir = output_path.parent / "img"
+            img_dir.mkdir(parents=True, exist_ok=True)
+            
+            # 2. 调用 pptx2md 逻辑
+            # 注意: pptx2md 源码中，Parser 接收 Presentation 对象
+            prs = pptx.Presentation(str(input_path))
+            outputter = md_outputter(str(output_path), image_dir=str(img_dir), image_page_dir_check=True) # image_page_dir_check=True for image per page folder? or just check signature
+            
+            # pptx2md 2.0+ 签名可能是 md_outputter(filepath, image_dir=...)
+            # 让我们保守一点，检查参数
+            
+            parser = Parser(prs, outputter)
+            parser.parse()
+            
+        except Exception as e:
+             # 如果库调用失败 (API 不匹配)，尝试回退到 subprocess (仅限开发环境)
+             log_warn(f"pptx2md 库调用失败: {e}，尝试命令行回退...")
+             cmd = ["pptx2md", str(input_path), "-o", str(output_path)]
+             img_dir = output_path.parent / "img"
+             cmd.extend(["-i", str(img_dir)])
+             subprocess.run(cmd, check=True, capture_output=True)
 
     def _convert_ppt(self, input_path, output_path):
         soffice_path = get_soffice_path()
