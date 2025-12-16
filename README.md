@@ -64,6 +64,14 @@ Everything2MD 是一个强大的文档转换工具，可以将各种格式的文
    ```
 3. 克隆或下载本项目代码
 
+## 贡献与规范
+
+我们欢迎社区贡献！在提交代码前，请务必阅读我们的 [版本管理与贡献规范](docs/rules/VERSIONING.md)。
+
+- **版本策略**: 遵循 Semantic Versioning 2.0.0。
+- **提交规范**: 遵循 Conventional Commits。
+- **变更日志**: 查看 [CHANGELOG.md](CHANGELOG.md) 了解最新变动。
+
 ## 开发与测试
 
 本项目包含 Python 接口/单元测试和 Shell 脚本集成测试。

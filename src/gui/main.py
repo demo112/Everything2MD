@@ -377,7 +377,6 @@ class Everything2MDGUI:
             
             state = 'normal'
             # Check support
-            from src.core.utils import get_soffice_path, get_pandoc_path
             
             is_supported = True
             tooltip_msg = ""
