@@ -21,14 +21,14 @@ if str(src_dir) not in sys.path:
 try:
     from core.config import ConfigManager
     from core.engine import ConversionEngine
-    from core.utils import setup_gui_logging, log_info, log_error
+    from core.utils import setup_gui_logging, log_info, log_error, get_soffice_path, get_pandoc_path
     from core.ragflow_client import RAGFlowClient
 except ImportError as e:
     # Fallback for development environment structure differences
     sys.path.append(str(src_dir.parent))
     from src.core.config import ConfigManager
     from src.core.engine import ConversionEngine
-    from src.core.utils import setup_gui_logging, log_info, log_error
+    from src.core.utils import setup_gui_logging, log_info, log_error, get_soffice_path, get_pandoc_path
     from src.core.ragflow_client import RAGFlowClient
 
 class Everything2MDGUI:
@@ -50,6 +50,7 @@ class Everything2MDGUI:
         self.max_parallel_jobs = tk.StringVar(value="2")
         self.file_filters = tk.StringVar(value="docx,pptx,pdf,txt")
         self.soffice_path = tk.StringVar()
+        self.pandoc_path = tk.StringVar()
         
         # RAGFlow 变量
         self.rag_api_base = tk.StringVar(value="http://localhost:9380")
@@ -207,6 +208,13 @@ class Everything2MDGUI:
         self.browse_soffice_button = ttk.Button(config_frame, text="...", width=3, command=self.browse_soffice)
         self.browse_soffice_button.grid(row=3, column=3, sticky=tk.W, pady=2)
         
+        # Pandoc 路径
+        ttk.Label(config_frame, text="Pandoc:").grid(row=4, column=0, sticky=tk.W, pady=2)
+        self.pandoc_entry = ttk.Entry(config_frame, textvariable=self.pandoc_path)
+        self.pandoc_entry.grid(row=4, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=2, padx=(0, 5))
+        self.browse_pandoc_button = ttk.Button(config_frame, text="...", width=3, command=self.browse_pandoc)
+        self.browse_pandoc_button.grid(row=4, column=3, sticky=tk.W, pady=2)
+        
         # 操作按钮
         button_frame = ttk.Frame(parent)
         button_frame.grid(row=3, column=0, columnspan=3, pady=10)
@@ -269,7 +277,8 @@ class Everything2MDGUI:
                   self.browse_output_button, self.browse_input_dir_button,
                   self.log_level_combo, self.output_format_combo,
                   self.batch_checkbox, self.max_jobs_spinbox, self.scan_button,
-                  self.save_config_button, self.soffice_entry, self.browse_soffice_button]:
+                  self.save_config_button, self.soffice_entry, self.browse_soffice_button,
+                  self.pandoc_entry, self.browse_pandoc_button]:
             try:
                 w.config(state=state)
             except Exception:
@@ -429,10 +438,38 @@ class Everything2MDGUI:
         if path:
             self.soffice_path.set(path)
 
+    def browse_pandoc(self):
+        path = filedialog.askopenfilename(title="选择 Pandoc (pandoc.exe)", filetypes=[("Executable", "*.exe"), ("All Files", "*.*")])
+        if path:
+            self.pandoc_path.set(path)
+
     def load_config(self):
         self.input_path.set(self.config_manager.get("last_input_path", ""))
         self.output_path.set(self.config_manager.get("last_output_path", ""))
-        self.soffice_path.set(self.config_manager.get("soffice_path", ""))
+        
+        # Load or auto-detect Soffice path
+        soffice_path = self.config_manager.get("soffice_path", "")
+        if not soffice_path:
+            try:
+                detected = get_soffice_path()
+                if detected:
+                    soffice_path = detected
+                    log_info(f"Auto-detected LibreOffice: {soffice_path}")
+            except Exception as e:
+                log_info(f"Failed to detect LibreOffice: {e}")
+        self.soffice_path.set(soffice_path)
+
+        # Load or auto-detect Pandoc path
+        pandoc_path = self.config_manager.get("pandoc_path", "")
+        if not pandoc_path:
+            try:
+                detected = get_pandoc_path()
+                if detected:
+                    pandoc_path = detected
+                    log_info(f"Auto-detected Pandoc: {pandoc_path}")
+            except Exception as e:
+                log_info(f"Failed to detect Pandoc: {e}")
+        self.pandoc_path.set(pandoc_path)
         
         self.log_level.set(self.config_manager.get("log_level", "INFO"))
         self.output_format.set(self.config_manager.get("output_format", "markdown"))
@@ -449,6 +486,7 @@ class Everything2MDGUI:
         self.config_manager.set("last_input_path", self.input_path.get())
         self.config_manager.set("last_output_path", self.output_path.get())
         self.config_manager.set("soffice_path", self.soffice_path.get())
+        self.config_manager.set("pandoc_path", self.pandoc_path.get())
         
         self.config_manager.set("log_level", self.log_level.get())
         self.config_manager.set("output_format", self.output_format.get())
