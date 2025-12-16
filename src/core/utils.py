@@ -6,39 +6,26 @@ import platform
 import subprocess
 import winreg
 from pathlib import Path
+from .logger import LogManager
+
 try:
     from .config import ConfigManager
 except ImportError:
     # Fallback for utils test
     try:
-        from src.core.config import ConfigManager
+        from core.config import ConfigManager
     except ImportError:
         ConfigManager = None
 
-# 配置日志
-logger = logging.getLogger("Everything2MD")
-logger.setLevel(logging.INFO)
-
-# 控制台处理器
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-logger.addHandler(console_handler)
-
-# GUI 回调处理器
-class CallbackHandler(logging.Handler):
-    def __init__(self, callback):
-        super().__init__()
-        self.callback = callback
-
-    def emit(self, record):
-        msg = self.format(record)
-        self.callback(record.levelname, msg)
+# Get logger from LogManager
+logger = LogManager.get_logger("core.utils")
 
 def setup_gui_logging(callback):
-    """设置 GUI 日志回调"""
-    handler = CallbackHandler(callback)
-    handler.setFormatter(logging.Formatter('%(message)s')) # GUI 中可能不需要时间戳，因为界面简洁
-    logger.addHandler(handler)
+    """
+    Deprecated: Use LogManager.setup(gui_queue=...) instead.
+    This function is kept for backward compatibility.
+    """
+    logger.warning("setup_gui_logging is deprecated. Use LogManager.setup().")
 
 def log_info(msg):
     logger.info(msg)
@@ -48,6 +35,51 @@ def log_error(msg):
 
 def log_warn(msg):
     logger.warning(msg)
+
+def run_command_with_logging(cmd, **kwargs):
+    """
+    Execute subprocess command and log its output.
+    """
+    cmd_str = ' '.join(str(x) for x in cmd)
+    logger.info(f"Executing command: {cmd_str}")
+    
+    # Force capture_output and text mode to capture logs
+    kwargs['capture_output'] = True
+    kwargs['text'] = True
+    
+    # Default encoding to utf-8 to avoid Windows gbk issues
+    if 'encoding' not in kwargs:
+        kwargs['encoding'] = 'utf-8'
+    if 'errors' not in kwargs:
+        kwargs['errors'] = 'replace'
+        
+    try:
+        # On Windows, prevent console window popping up
+        if platform.system() == "Windows":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            kwargs['startupinfo'] = startupinfo
+
+        result = subprocess.run(cmd, **kwargs)
+        
+        if result.returncode != 0:
+            logger.error(f"Command failed with code {result.returncode}")
+            if result.stdout:
+                logger.error(f"Stdout: {result.stdout.strip()}")
+            if result.stderr:
+                logger.error(f"Stderr: {result.stderr.strip()}")
+        else:
+            logger.debug("Command execution successful")
+            if result.stdout:
+                preview = result.stdout.strip()
+                if len(preview) > 500:
+                    preview = preview[:500] + "... [truncated]"
+                logger.debug(f"Stdout: {preview}")
+                
+        return result
+    except Exception as e:
+        logger.exception(f"Failed to execute command: {cmd_str}")
+        raise
 
 def get_soffice_path():
     """获取 LibreOffice 路径"""

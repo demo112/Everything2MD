@@ -10,15 +10,43 @@ from .base import BaseConverter
 import sys
 
 class OfficeConverter(BaseConverter):
-    def convert(self, input_path: Path, output_path: Path, **kwargs):
+    def _run_subprocess(self, cmd, context=None, **kwargs):
+        """Helper to run subprocess with cancellation support"""
+        if context:
+            # Ensure output capturing is set if check=True or capture_output=True is implied
+            # subprocess.run with capture_output=True sets stdout/stderr to PIPE
+            if kwargs.pop('capture_output', False):
+                kwargs['stdout'] = subprocess.PIPE
+                kwargs['stderr'] = subprocess.PIPE
+            
+            # check parameter is handled manually
+            check = kwargs.pop('check', False)
+            timeout = kwargs.pop('timeout', None)
+            
+            proc = subprocess.Popen(cmd, **kwargs)
+            context.set_process(proc)
+            try:
+                stdout, stderr = proc.communicate(timeout=timeout)
+                retcode = proc.returncode
+                
+                if check and retcode != 0:
+                    raise subprocess.CalledProcessError(retcode, cmd, output=stdout, stderr=stderr)
+                
+                return subprocess.CompletedProcess(cmd, retcode, stdout, stderr)
+            finally:
+                context.set_process(None)
+        else:
+            return subprocess.run(cmd, **kwargs)
+
+    def convert(self, input_path: Path, output_path: Path, context=None, **kwargs) -> Path:
         soffice_path = get_soffice_path()
         pandoc_path = get_pandoc_path()
 
         if not soffice_path:
             if input_path.suffix.lower() == '.docx' and pandoc_path:
                 log_warn(f"LibreOffice不可用，尝试使用Pandoc直接转换DOCX: {input_path}")
-                self._convert_with_pandoc_direct(input_path, output_path, pandoc_path)
-                return
+                self._convert_with_pandoc_direct(input_path, output_path, pandoc_path, context=context)
+                return output_path
             else:
                 raise RuntimeError("LibreOffice未安装且无替代转换方案")
 
@@ -62,6 +90,41 @@ class OfficeConverter(BaseConverter):
             if not copy_success:
                 raise RuntimeError(f"无法复制文件到临时目录 (重试5次后失败): {last_error}")
 
+            # 0. Check for PDF output
+            if output_path.suffix.lower() == '.pdf':
+                user_profile = temp_dir_path / "user_profile"
+                cmd = [
+                    soffice_path,
+                    f"-env:UserInstallation=file:///{str(user_profile).replace(os.sep, '/')}",
+                    "--headless",
+                    "--convert-to", "pdf",
+                    "--outdir", str(temp_dir_path),
+                    str(safe_input)
+                ]
+                
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        self._run_subprocess(cmd, context=context, check=True, capture_output=True)
+                        break 
+                    except subprocess.CalledProcessError as e:
+                        err_msg = e.stderr.decode('utf-8', errors='ignore') if e.stderr else str(e)
+                        if attempt < max_retries - 1:
+                            log_warn(f"LibreOffice PDF转换尝试 {attempt+1} 失败: {err_msg}，正在重试...")
+                            time.sleep(2)
+                        else:
+                            raise RuntimeError(f"LibreOffice PDF转换失败 (重试{max_retries}次后): {err_msg}")
+                
+                # Move PDF to output path
+                # Expecting output file name to be same as input but with .pdf extension
+                pdf_file = temp_dir_path / safe_input.with_suffix('.pdf').name
+                if pdf_file.exists():
+                    shutil.move(str(pdf_file), str(output_path))
+                    log_info(f"成功转换Office文档: {input_path} -> {output_path}")
+                    return output_path
+                else:
+                    raise RuntimeError(f"LibreOffice未生成PDF文件: {pdf_file}")
+
             # 1. LibreOffice -> HTML (增加重试机制)
             # 使用独立的用户配置目录以支持并发
             user_profile = temp_dir_path / "user_profile"
@@ -77,7 +140,7 @@ class OfficeConverter(BaseConverter):
             max_retries = 3
             for attempt in range(max_retries):
                 try:
-                    result = subprocess.run(cmd, check=True, capture_output=True)
+                    result = self._run_subprocess(cmd, context=context, check=True, capture_output=True)
                     break # Success
                 except subprocess.CalledProcessError as e:
                     err_msg = e.stderr.decode('utf-8', errors='ignore') if e.stderr else str(e)
@@ -100,18 +163,19 @@ class OfficeConverter(BaseConverter):
 
             # 2. HTML -> Markdown (via Pandoc)
             if pandoc_path:
-                self._convert_html_to_md(html_file, output_path, pandoc_path)
+                self._convert_html_to_md(html_file, output_path, pandoc_path, context=context)
             else:
                 # 无 Pandoc，直接输出 HTML
                 shutil.copy(html_file, output_path)
 
             log_info(f"成功转换Office文档: {input_path} -> {output_path}")
+            return output_path
 
-    def _convert_with_pandoc_direct(self, input_path, output_path, pandoc_path):
+    def _convert_with_pandoc_direct(self, input_path, output_path, pandoc_path, context=None):
         cmd = [pandoc_path, str(input_path), "-o", str(output_path)]
-        subprocess.run(cmd, check=True)
+        self._run_subprocess(cmd, context=context, check=True)
 
-    def _convert_html_to_md(self, html_path, output_path, pandoc_path):
+    def _convert_html_to_md(self, html_path, output_path, pandoc_path, context=None):
         if getattr(sys, 'frozen', False):
             base_path = Path(sys._MEIPASS)
         else:
@@ -128,30 +192,6 @@ class OfficeConverter(BaseConverter):
         ]
         
         if lua_filter.exists():
-            # Use forward slashes for Pandoc compatibility on Windows, or escape properly
-            # The error "Error parsing format --lua-filter: unexpected '-'" suggests Pandoc might be confused 
-            # if we pass arguments in a way that splits them unexpectedly or if the path has issues.
-            # However, the previous error was "cannot open --lua-filter=C:\...". 
-            # The current error is "Error parsing format --lua-filter". 
-            # This usually happens when --lua-filter is passed as a format option or in the wrong order?
-            # Actually, the previous fix split it into two args: "--lua-filter", str(lua_filter).
-            # If the lua filter path starts with '-', it could be an issue, but it starts with 'C:'.
-            # Wait, subprocess.run list args are safe. 
-            # But "Error parsing format" usually refers to -f or -t.
-            # Let's check the cmd list construction.
-            # cmd = [pandoc_path, "-f", "html", "-t", "gfm-raw_html", str(html_path), "-o", str(output_path)]
-            # We insert at index 4. 
-            # Index 0: pandoc, 1: -f, 2: html, 3: -t, 4: gfm-raw_html
-            # So if we insert at 4, it becomes: 
-            # [pandoc, -f, html, -t, --lua-filter, filter_path, gfm-raw_html, ...]
-            # This breaks the "-t gfm-raw_html" pair! 
-            # -t expects the next arg to be the format. We inserted --lua-filter between -t and its value.
-            
-            # Fix: Insert AFTER the format definition.
-            # Original list length is 8 (0-7).
-            # We should append it or insert at a safe position (e.g., index 1).
-            # Pandoc options are order-independent mostly, but values must follow flags.
-            
             cmd.append("--lua-filter")
             cmd.append(str(lua_filter))
         else:
@@ -163,7 +203,7 @@ class OfficeConverter(BaseConverter):
             env = os.environ.copy()
             env["PYTHONIOENCODING"] = "utf-8"
             
-            subprocess.run(cmd, check=True, capture_output=True, env=env)
+            self._run_subprocess(cmd, context=context, check=True, capture_output=True, env=env)
         except subprocess.CalledProcessError as e:
              err_msg = e.stderr.decode('utf-8', errors='ignore') if e.stderr else str(e)
              # Exit 21 is Pandoc general error, often encoding or input file issue
@@ -172,7 +212,7 @@ class OfficeConverter(BaseConverter):
                  # Retry without Lua filter as fallback
                  cmd_fallback = [c for c in cmd if "lua-filter" not in c and ".lua" not in c]
                  try:
-                     subprocess.run(cmd_fallback, check=True, capture_output=True, env=env)
+                     self._run_subprocess(cmd_fallback, context=context, check=True, capture_output=True, env=env)
                      return
                  except subprocess.CalledProcessError as e2:
                      err_msg = e2.stderr.decode('utf-8', errors='ignore') if e2.stderr else str(e2)

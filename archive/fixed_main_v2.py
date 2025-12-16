@@ -108,7 +108,7 @@ class FixedEverything2MDGUI:
             
         # Validate output format
         output_format = self.config["output_format"].get()
-        valid_formats = ["markdown", "html", "txt"]
+        valid_formats = ["markdown", "html", "txt", "pdf"]
         if output_format not in valid_formats:
             errors.append(f"无效的输出格式: {output_format}")
             
@@ -196,7 +196,7 @@ class FixedEverything2MDGUI:
         # Output format
         ttk.Label(parent, text="输出格式:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
         output_format_combo = ttk.Combobox(parent, textvariable=self.config["output_format"], 
-                                          values=["markdown", "html", "txt"], 
+                                          values=["markdown", "html", "txt", "pdf"], 
                                           state="readonly", width=20)
         output_format_combo.grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
         

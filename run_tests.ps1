@@ -58,8 +58,16 @@ switch ($Target) {
     "unit-test" { Run-Bats $UnitTestDir }
     "integration-test" { Run-Bats $IntegrationTestDir }
     "clean" { Clean }
+    "test-ui" { 
+        Write-Host "Running UI tests..." -ForegroundColor Cyan
+        & $Pytest test/ui
+    }
     "all" { 
         Run-Python
+        if ($IsWindows) {
+            Write-Host "Running UI tests..." -ForegroundColor Cyan
+            & $Pytest test/ui
+        }
         Run-Bats "$UnitTestDir $IntegrationTestDir"
     }
     Default { 

@@ -8,21 +8,17 @@ from src.core.utils import (
     get_soffice_path, get_pandoc_path, check_dependencies
 )
 
-def test_logger():
-    # Setup a mock callback
-    logs = []
-    def callback(level, msg):
-        logs.append((level, msg))
-        
-    setup_gui_logging(callback)
+def test_logger(mocker):
+    # Mock the logger in utils
+    mock_logger = mocker.patch('src.core.utils.logger')
     
     log_info("test info")
     log_error("test error")
     log_warn("test warn")
     
-    assert ("INFO", "test info") in logs
-    assert ("ERROR", "test error") in logs
-    assert ("WARNING", "test warn") in logs
+    mock_logger.info.assert_called_with("test info")
+    mock_logger.error.assert_called_with("test error")
+    mock_logger.warning.assert_called_with("test warn")
 
 @pytest.fixture
 def mock_config_manager(mocker):

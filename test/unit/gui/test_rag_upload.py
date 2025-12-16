@@ -1,23 +1,22 @@
 import pytest
-from unittest.mock import MagicMock, patch, call
-import sys
-import os
-
-# Mock tkinter before importing gui.main
-sys.modules['tkinter'] = MagicMock()
-sys.modules['tkinter.ttk'] = MagicMock()
-sys.modules['tkinter.filedialog'] = MagicMock()
-sys.modules['tkinter.messagebox'] = MagicMock()
-
+from unittest.mock import MagicMock, patch, ANY
+from pathlib import Path
 import tkinter as tk
-from src.gui.main import Everything2MDGUI
+
+# Mock tkinter is handled in conftest.py
 
 @pytest.fixture
 def mock_root():
-    return MagicMock()
+    root = MagicMock()
+    # Ensure root.tk is also a mock
+    root.tk = MagicMock()
+    return root
 
 @pytest.fixture
 def app(mock_root):
+    # Import inside fixture to ensure sys.modules is patched
+    from src.gui.main import Everything2MDGUI
+    
     # Mock ConfigManager to avoid file I/O
     with patch('src.gui.main.ConfigManager') as MockConfig:
         MockConfig.return_value.get.return_value = ""
@@ -39,7 +38,8 @@ def app(mock_root):
         
         return app
 
-def test_upload_selected_files_success(app):
+@patch('os.path.exists', return_value=True)
+def test_upload_selected_files_success(mock_exists, app):
     """Test uploading files that are checked [x]"""
     # Setup
     app.kb_combo.get.return_value = "MyKB"
@@ -56,18 +56,18 @@ def test_upload_selected_files_success(app):
             return # Setting value
         # Getting value
         if item == "item1" and col == "select":
-            return "[x]"
+            return "☑"
         if item == "item2" and col == "select":
-            return "[ ]"
+            return "☐"
         return ""
         
     app.rag_file_list.set.side_effect = set_side_effect
     
     def item_side_effect(item):
         if item == "item1":
-            return {'values': ["[x]", "file1.docx", "Ready", "Not Uploaded"]}
+            return {'values': ["☑", "file1.docx", "Ready", "Not Uploaded"]}
         if item == "item2":
-            return {'values': ["[ ]", "file2.pdf", "Ready", "Not Uploaded"]}
+            return {'values': ["☐", "file2.pdf", "Ready", "Not Uploaded"]}
         return {}
     
     app.rag_file_list.item.side_effect = item_side_effect
@@ -126,7 +126,7 @@ def test_upload_no_kb_selected(app):
     # Setup
     children = ["item1"]
     app.rag_file_list.get_children.return_value = children
-    app.rag_file_list.set.return_value = "[x]" # Selected
+    app.rag_file_list.set.return_value = "☑" # Selected
     
     app.kb_combo.get.return_value = "" # No KB
     
@@ -134,16 +134,18 @@ def test_upload_no_kb_selected(app):
         app.upload_selected_files()
         mock_err.assert_called_with("错误", "请选择目标知识库")
 
-def test_upload_deduplication(app):
+@patch('os.path.exists', return_value=True)
+def test_upload_deduplication(mock_exists, app):
     """Test skipping files that already exist"""
     # Setup
     app.kb_combo.get.return_value = "MyKB"
+    app.converted_files.append({"name": "existing_file.docx", "path": "/path/to/existing_file.docx", "status": "Ready", "id": ""})
     
     # Mock treeview items
     children = ["item1"]
     app.rag_file_list.get_children.return_value = children
-    app.rag_file_list.set.return_value = "[x]"
-    app.rag_file_list.item.return_value = {'values': ["[x]", "existing_file.docx", "Ready", "Not Uploaded"]}
+    app.rag_file_list.set.return_value = "☑"
+    app.rag_file_list.item.return_value = {'values': ["☑", "existing_file.docx", "Ready", "Not Uploaded"]}
     
     # Mock list_documents to return "existing_file.docx"
     app.ragflow_client.list_documents.return_value = [{"name": "existing_file.docx"}]

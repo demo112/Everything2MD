@@ -1,40 +1,39 @@
 import pytest
-from unittest.mock import MagicMock, patch, mock_open, call
-import sys
+from unittest.mock import MagicMock, patch, call
 import threading
-
-# Mock tkinter before importing gui.main
-sys.modules['tkinter'] = MagicMock()
-sys.modules['tkinter.ttk'] = MagicMock()
-sys.modules['tkinter.filedialog'] = MagicMock()
-sys.modules['tkinter.messagebox'] = MagicMock()
-
+import time
+from pathlib import Path
 import tkinter as tk
-from src.gui.main import Everything2MDGUI
+
+# Mock tkinter is handled in conftest.py
 
 @pytest.fixture
 def mock_root():
-    return MagicMock()
+    root = MagicMock()
+    # Ensure root.tk is also a mock
+    root.tk = MagicMock()
+    return root
 
 @pytest.fixture
 def app(mock_root):
-    # Ensure StringVar returns a NEW mock each time to isolate tests
-    # Because sys.modules['tkinter'].StringVar is a Mock, calling it returns .return_value by default (singleton)
-    # We want it to behave like a class that creates new instances.
-    sys.modules['tkinter'].StringVar.side_effect = lambda *args, **kwargs: MagicMock()
+    # Import inside fixture to ensure sys.modules is patched
+    from src.gui.main import Everything2MDGUI
     
     # Mock Engine to prevent real initialization
     with patch('src.gui.main.ConversionEngine') as mock_engine_cls:
         with patch('src.gui.main.ConfigManager') as mock_config_cls:
+            # Configure ConfigManager to return strings, not Mocks
+            mock_config_instance = mock_config_cls.return_value
+            mock_config_instance.get.return_value = "INFO" 
+
             app = Everything2MDGUI(mock_root)
             app.engine = mock_engine_cls.return_value
-            app.config_manager = mock_config_cls.return_value
+            app.config_manager = mock_config_instance
             
             # Reset mocks to clear initialization calls
             app.input_path.set.reset_mock()
             app.output_path.set.reset_mock()
             app.file_filters.set.reset_mock()
-            # Also reset get calls if needed, though get is usually configured via return_value
             
             return app
 
@@ -178,26 +177,28 @@ def test_rag_upload(app):
     # Mock Treeview children
     app.rag_file_list = MagicMock()
     app.rag_file_list.get_children.return_value = ["item1"]
-    app.rag_file_list.set.return_value = "[x]" # Selected
-    app.rag_file_list.item.return_value = {'values': ["[x]", "file.docx"]}
+    # Use the correct symbol "☑" for selection check
+    app.rag_file_list.set.return_value = "☑"
+    app.rag_file_list.item.return_value = {'values': ["☑", "file.docx"]}
     
-    with patch('threading.Thread') as mock_thread_cls:
-        app.upload_selected_files()
-        
-        args = mock_thread_cls.call_args
-        target = args[1]['target']
-        
-        # Mock list_documents inside target
-        app.ragflow_client.list_documents.return_value = []
-        app.ragflow_client.upload_document.return_value = {"id": "doc1"}
-        
-        target()
-        
-        app.ragflow_client.upload_document.assert_called_with("id1", "C:/file.docx")
+    # Mock os.path.exists to allow upload
+    with patch('os.path.exists', return_value=True):
+        with patch('threading.Thread') as mock_thread_cls:
+            app.upload_selected_files()
+            
+            # Verify thread was started
+            assert mock_thread_cls.called
+            args = mock_thread_cls.call_args
+            target = args[1]['target']
+            assert callable(target)
+            
+            # Mock list_documents inside target
+            app.ragflow_client.list_documents.return_value = []
+            app.ragflow_client.upload_document.return_value = {"id": "doc1"}
+            
+            target()
+            
+            app.ragflow_client.upload_document.assert_called_with("id1", "C:/file.docx")
 
-def test_on_log_received(app):
-    app.on_log_received("INFO", "msg")
-    assert not app.log_queue.empty()
-    item = app.log_queue.get()
-    assert item == ("INFO", "msg")
+
 

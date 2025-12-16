@@ -7,6 +7,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import sys
 import os
+import logging
 import threading
 import queue
 import json
@@ -21,15 +22,17 @@ if str(src_dir) not in sys.path:
 try:
     from core.config import ConfigManager
     from core.engine import ConversionEngine
-    from core.utils import setup_gui_logging, log_info, log_error, get_soffice_path, get_pandoc_path
+    from core.utils import setup_gui_logging, log_info, log_error, log_warn, get_soffice_path, get_pandoc_path
     from core.ragflow_client import RAGFlowClient
+    from core.logger import LogManager
 except ImportError as e:
     # Fallback for development environment structure differences
     sys.path.append(str(src_dir.parent))
     from src.core.config import ConfigManager
     from src.core.engine import ConversionEngine
-    from src.core.utils import setup_gui_logging, log_info, log_error, get_soffice_path, get_pandoc_path
+    from src.core.utils import setup_gui_logging, log_info, log_error, log_warn, get_soffice_path, get_pandoc_path
     from src.core.ragflow_client import RAGFlowClient
+    from src.core.logger import LogManager
 
 class Everything2MDGUI:
     def __init__(self, root):
@@ -40,6 +43,9 @@ class Everything2MDGUI:
         # 初始化核心组件
         self.config_manager = ConfigManager()
         self.engine = ConversionEngine(self.config_manager)
+        
+        # Tkinter Exception Hook
+        self.root.report_callback_exception = self.handle_tk_exception
         
         # 初始化变量
         self.input_path = tk.StringVar()
@@ -64,19 +70,26 @@ class Everything2MDGUI:
         
         # 日志队列
         self.log_queue = queue.Queue()
-        setup_gui_logging(self.on_log_received)
+        # Initialize LogManager with queue
+        LogManager.setup(log_level="INFO", gui_queue=self.log_queue)
         
         # 加载配置
         self.load_config()
+        
+        # Update log level after loading config
+        current_level = self.log_level.get()
+        logging.getLogger().setLevel(getattr(logging, current_level.upper(), logging.INFO))
         
         # 创建界面
         self.create_widgets()
         
         # 启动日志处理循环
         self.process_log_queue()
-        
-    def on_log_received(self, level, msg):
-        self.log_queue.put((level, msg))
+
+    def handle_tk_exception(self, exc_type, exc_value, exc_traceback):
+        """Handle Tkinter exceptions by logging them and showing an error box."""
+        logging.getLogger().critical("Tkinter exception:", exc_info=(exc_type, exc_value, exc_traceback))
+        messagebox.showerror("错误", f"发生未处理的错误:\n{exc_value}")
         
     def process_log_queue(self):
         while not self.log_queue.empty():
@@ -168,7 +181,7 @@ class Everything2MDGUI:
         
         # 输出格式
         ttk.Label(config_frame, text="输出格式:").grid(row=0, column=2, sticky=tk.W, pady=2)
-        self.output_format_combo = ttk.Combobox(config_frame, textvariable=self.output_format, values=["markdown", "html", "txt"], state="readonly")
+        self.output_format_combo = ttk.Combobox(config_frame, textvariable=self.output_format, values=["markdown", "html", "txt", "pdf"], state="readonly")
         self.output_format_combo.grid(row=0, column=3, sticky=(tk.W, tk.E), pady=2)
         
         # 批量处理
@@ -480,7 +493,7 @@ class Everything2MDGUI:
         self.rag_api_base.set(self.config_manager.get("rag_api_base", "http://localhost:9380"))
         self.rag_api_key.set(self.config_manager.get("rag_api_key", ""))
 
-    def save_config(self):
+    def save_config(self, show_dialog=True):
         # Save GUI settings to ConfigManager
         self.config_manager.set("last_input_path", self.input_path.get())
         self.config_manager.set("last_output_path", self.output_path.get())
@@ -497,7 +510,19 @@ class Everything2MDGUI:
         self.config_manager.set("rag_api_base", self.rag_api_base.get())
         self.config_manager.set("rag_api_key", self.rag_api_key.get())
         
-        self.config_manager.save_config()
+        try:
+            self.config_manager.save_config()
+            self.status_bar.config(text="配置已保存")
+            # Clear message after 3 seconds
+            self.root.after(3000, lambda: self.status_bar.config(text="就绪"))
+        except Exception as e:
+            log_error(f"保存配置失败: {e}")
+            if show_dialog:
+                messagebox.showerror("错误", f"保存配置失败: {e}")
+            return
+            
+        if show_dialog:
+            messagebox.showinfo("成功", "配置已保存")
 
     def start_conversion(self):
         if not self.input_path.get():
@@ -508,7 +533,7 @@ class Everything2MDGUI:
             return
 
         # 保存配置
-        self.save_config()
+        self.save_config(show_dialog=False)
         
         self.start_button.config(state=tk.DISABLED)
         self.cancel_button.config(state=tk.NORMAL)
@@ -601,7 +626,7 @@ class Everything2MDGUI:
         # Check if already exists?
         # For simplicity, just append.
         # Use [x] for selected by default
-        self.rag_file_list.insert('', 'end', values=("[x]", fname, "转换完成", "未上传"))
+        self.rag_file_list.insert('', 'end', values=("☑", fname, "转换完成", "未上传"))
 
     def init_rag_tab(self, parent):
         parent.columnconfigure(1, weight=1)
@@ -628,7 +653,7 @@ class Everything2MDGUI:
         self.kb_combo = ttk.Combobox(ctrl_frame, textvariable=self.selected_kb_id, state="readonly", width=30)
         self.kb_combo.pack(side='left', padx=5)
         
-        ttk.Button(ctrl_frame, text="新建KB...", command=self.show_new_kb_dialog).pack(side='left', padx=5)
+        ttk.Button(ctrl_frame, text="新建知识库...", command=self.show_new_kb_dialog).pack(side='left', padx=5)
         ttk.Button(ctrl_frame, text="上传选中文件", command=self.upload_selected_files).pack(side='right', padx=5)
         ttk.Button(ctrl_frame, text="全选/反选", command=self.toggle_all_selection).pack(side='right', padx=5)
 
@@ -643,7 +668,7 @@ class Everything2MDGUI:
         self.rag_file_list.heading('convert_status', text='转换状态')
         self.rag_file_list.heading('upload_status', text='上传状态')
         
-        self.rag_file_list.column('select', width=50, anchor='center')
+        self.rag_file_list.column('select', width=40, anchor='center')
         self.rag_file_list.column('name', width=300)
         self.rag_file_list.column('convert_status', width=100)
         self.rag_file_list.column('upload_status', width=100)
@@ -668,16 +693,18 @@ class Everything2MDGUI:
         if col == '#1' and item_id: # '#1' corresponds to the first column 'select'
             # Toggle check
             current_val = self.rag_file_list.set(item_id, 'select')
-            new_val = "[ ]" if "[x]" in current_val else "[x]"
+            new_val = "☐" if "☑" in current_val else "☑"
             self.rag_file_list.set(item_id, 'select', value=new_val)
+            return "break"
 
     def toggle_all_selection(self):
-        # Toggle all based on first item
+        # Toggle all based on current state
         children = self.rag_file_list.get_children()
         if not children: return
         
-        first_val = self.rag_file_list.set(children[0], 'select')
-        new_val = "[ ]" if "[x]" in first_val else "[x]"
+        # If any is unchecked, check all; otherwise uncheck all
+        any_unchecked = any("☐" in self.rag_file_list.set(item, 'select') for item in children)
+        new_val = "☑" if any_unchecked else "☐"
         
         for item in children:
             self.rag_file_list.set(item, 'select', value=new_val)
@@ -726,7 +753,7 @@ class Everything2MDGUI:
 
         threading.Thread(target=_do_refresh, daemon=True).start()
         # Save RAG config on refresh action too
-        self.save_config()
+        self.save_config(show_dialog=False)
 
     def show_new_kb_dialog(self):
         # Simple dialog to get name and optional template
@@ -770,7 +797,7 @@ class Everything2MDGUI:
         children = self.rag_file_list.get_children()
         selected_items = []
         for item in children:
-            if "[x]" in self.rag_file_list.set(item, 'select'):
+            if "☑" in self.rag_file_list.set(item, 'select'):
                 selected_items.append(item)
                 
         if not selected_items:
@@ -784,6 +811,7 @@ class Everything2MDGUI:
             
         kb_id = self.kb_map.get(kb_name)
         if not kb_id:
+            messagebox.showerror("错误", f"未找到知识库 ID: {kb_name}")
             return
 
         # Prepare list
@@ -793,10 +821,22 @@ class Everything2MDGUI:
             fname = vals[1] # Column 0 is checkbox, 1 is name
             # Find full path from self.converted_files
             # This is O(N), but list is small.
+            found = False
             for f in self.converted_files:
                 if f['name'] == fname:
-                    files_to_upload.append((iid, f))
-                    break
+                    # Verify file exists
+                    if os.path.exists(f['path']):
+                        files_to_upload.append((iid, f))
+                        found = True
+                        break
+                    else:
+                        log_warn(f"File missing from disk: {f['path']}")
+            if not found:
+                log_warn(f"File not found or missing in converted list: {fname}")
+        
+        if not files_to_upload:
+             messagebox.showerror("错误", "未找到选中文件的路径信息，请重新转换")
+             return
         
         def _bg_upload():
             self.root.after(0, lambda: self.status_bar.config(text="正在获取知识库文档列表..."))
@@ -824,6 +864,8 @@ class Everything2MDGUI:
             success_count = 0
             fail_count = 0
             skip_count = 0
+            
+            failed_files = []
             
             for iid, f_obj in files_to_upload:
                 if f_obj['name'] in existing_docs:
@@ -858,22 +900,35 @@ class Everything2MDGUI:
                     success_count += 1
                     
                 except Exception as e:
-                    self.root.after(0, lambda i=iid: self.rag_file_list.set(i, column='upload_status', value='失败'))
+                    err_msg = str(e)
+                    failed_files.append(f"{f_obj['name']}: {err_msg}")
+                    # Limit length for UI
+                    short_msg = f"失败: {err_msg[:15]}..."
+                    self.root.after(0, lambda i=iid: self.rag_file_list.set(i, column='upload_status', value=short_msg))
                     log_info(f"Upload failed for {f_obj['name']}: {e}")
                     fail_count += 1
 
             msg = f"上传完成: 成功 {success_count}, 失败 {fail_count}, 跳过 {skip_count}"
-            self.root.after(0, lambda: [self.status_bar.config(text=msg), messagebox.showinfo("上传结果", msg)])
+            if fail_count > 0:
+                detail_msg = "\n".join(failed_files[:5])
+                if len(failed_files) > 5:
+                    detail_msg += "\n..."
+                full_msg = f"{msg}\n\n失败详情:\n{detail_msg}"
+                self.root.after(0, lambda: [self.status_bar.config(text=msg), messagebox.showerror("上传结果", full_msg)])
+            else:
+                self.root.after(0, lambda: [self.status_bar.config(text=msg), messagebox.showinfo("上传结果", msg)])
 
         threading.Thread(target=_bg_upload, daemon=True).start()
 
     def cancel_conversion(self):
         """停止转换任务"""
         if self.engine:
-            self.engine.stop()
-            log_info("正在停止转换任务...")
+            log_info("正在请求停止转换任务...")
             self.status_bar.config(text="正在停止...")
             self.cancel_button.config(state=tk.DISABLED)
+            
+            # Run abort in a separate thread to avoid freezing UI if kill takes time
+            threading.Thread(target=self.engine.stop, daemon=True).start()
 
     def on_conversion_finished(self):
         self.is_converting = False

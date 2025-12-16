@@ -72,17 +72,17 @@ def test_convert_file_office_delegation(mock_config, tmp_path):
     out = tmp_path / "test.md"
     
     engine.convert_file(inp, out)
-    engine.office_converter.convert.assert_called_once_with(inp, out)
+    engine.office_converter.convert.assert_called_once_with(inp, out, context=None)
 
 def test_convert_file_ppt_delegation(mock_config, tmp_path):
     engine = ConversionEngine(mock_config)
     engine.ppt_converter = MagicMock()
-    
+
     inp = tmp_path / "test.pptx"
     out = tmp_path / "test.md"
-    
+
     engine.convert_file(inp, out)
-    engine.ppt_converter.convert.assert_called_once_with(inp, out)
+    engine.ppt_converter.convert.assert_called_once_with(inp, out, context=None)
 
 def test_convert_stop_flag(mock_config, tmp_path):
     engine = ConversionEngine(mock_config)

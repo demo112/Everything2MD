@@ -28,6 +28,7 @@ class ConfigManager:
             "conversion_settings": {
                 "log_level": "INFO",
                 "output_format": "markdown",
+                "max_output_file_size_mb": 50,
                 "batch_processing": {
                     "enabled": True,
                     "max_parallel_jobs": 2,
@@ -73,6 +74,8 @@ class ConfigManager:
             return self.config_data.get("conversion_settings", {}).get("log_level", default)
         elif key == "output_format":
             return self.config_data.get("conversion_settings", {}).get("output_format", default)
+        elif key == "max_output_file_size_mb":
+            return self.config_data.get("conversion_settings", {}).get("max_output_file_size_mb", default)
         elif key == "batch_processing_enabled":
             val = self.config_data.get("conversion_settings", {}).get("batch_processing", {}).get("enabled", default)
             return str(val).lower()  # Keep consistent with shell script string return
