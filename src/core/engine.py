@@ -7,7 +7,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from .config import ConfigManager
 from .converters.office import OfficeConverter
 from .converters.ppt import PptConverter
-from .utils import log_info, log_error, log_warn
+from .converters.emmx import EmmxConverter
+from .utils import log_info, log_error, log_warn, split_large_file
 
 class CancellationContext:
     def __init__(self):
@@ -37,6 +38,7 @@ class ConversionEngine:
         self.config = config_manager
         self.office_converter = OfficeConverter()
         self.ppt_converter = PptConverter()
+        self.emmx_converter = EmmxConverter()
         self.stop_flag = False
         self.active_contexts = []
         self._lock = threading.Lock()
@@ -51,6 +53,8 @@ class ConversionEngine:
             return 'pdf' # Treated as office in original logic
         elif suffix == '.txt':
             return 'text'
+        elif suffix == '.emmx':
+            return 'emmx'
         return None
 
     def convert_file(self, input_path: Path, output_path: Path, status_callback=None, context=None):
@@ -86,10 +90,22 @@ class ConversionEngine:
                 import shutil
                 shutil.copy(input_path, output_path)
                 final_path = output_path
+            elif file_type == 'emmx':
+                final_path = self.emmx_converter.convert(input_path, output_path, context=context)
             
+            # Check for splitting
+            output_files = [final_path]
+            try:
+                max_size = int(self.config.get("max_output_file_size_mb", 50))
+                if final_path and final_path.exists():
+                    output_files = split_large_file(final_path, max_size)
+            except Exception as e:
+                log_warn(f"Splitting failed: {e}")
+                # output_files remains [final_path]
+
             if status_callback:
                 status_callback(str(input_path), "success", "转换成功")
-            return final_path
+            return output_files
         except Exception as e:
             if self.stop_flag:
                 log_warn(f"任务被取消: {input_path}")
@@ -186,9 +202,12 @@ class ConversionEngine:
                 
                 inp = future_to_file[future]
                 try:
-                    result_path = future.result()
-                    if result_path and file_converted_callback:
-                        file_converted_callback(str(result_path))
+                    result = future.result()
+                    if result:
+                        paths = result if isinstance(result, list) else [result]
+                        for p in paths:
+                            if file_converted_callback:
+                                file_converted_callback(str(p))
                 except Exception as e:
                     log_error(f"任务异常 {inp}: {e}")
 

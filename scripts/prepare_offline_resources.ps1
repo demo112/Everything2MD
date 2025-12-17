@@ -3,7 +3,8 @@
 
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = Get-Location
+$ScriptDir = $PSScriptRoot
+$ProjectRoot = Split-Path -Parent $ScriptDir
 $ResourceDir = Join-Path $ProjectRoot "docker_resources"
 $AptDir = Join-Path $ResourceDir "apt"
 $PipDir = Join-Path $ResourceDir "pip"

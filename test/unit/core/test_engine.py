@@ -24,7 +24,7 @@ def test_convert_text(mock_config, tmp_path):
     inp.write_text("hello")
     out = tmp_path / "test.md"
     
-    assert engine.convert_file(inp, out) == out
+    assert engine.convert_file(inp, out) == [out]
     assert out.exists()
     assert out.read_text() == "hello"
 

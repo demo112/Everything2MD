@@ -206,3 +206,56 @@ def check_dependencies():
     if missing:
         raise RuntimeError(f"缺少必要依赖: {', '.join(missing)}")
     return True
+
+def split_large_file(file_path: Path, max_size_mb: int) -> list:
+    """
+    Split a large file into smaller parts if it exceeds max_size_mb.
+    Returns a list of paths (either [original] or [part1, part2, ...]).
+    """
+    file_path = Path(file_path)
+    if not file_path.exists() or max_size_mb <= 0:
+        return [file_path]
+    
+    threshold_bytes = max_size_mb * 1024 * 1024
+    if file_path.stat().st_size <= threshold_bytes:
+        return [file_path]
+        
+    log_info(f"File {file_path} size {file_path.stat().st_size} exceeds threshold {threshold_bytes}. Splitting...")
+    
+    target_bytes = int(threshold_bytes * 0.9)
+    parts = []
+    
+    try:
+        # Check encoding, assume utf-8
+        with open(file_path, 'r', encoding='utf-8') as f:
+            part_num = 1
+            current_part_path = file_path.parent / f"{file_path.stem}_part{part_num}{file_path.suffix}"
+            current_part_file = open(current_part_path, 'w', encoding='utf-8', newline='')
+            current_size = 0
+            parts.append(current_part_path)
+            
+            for line in f:
+                line_bytes = len(line.encode('utf-8'))
+                
+                # If current part exceeds target (and not empty), start new part
+                if current_size + line_bytes > target_bytes and current_size > 0:
+                    current_part_file.close()
+                    part_num += 1
+                    current_part_path = file_path.parent / f"{file_path.stem}_part{part_num}{file_path.suffix}"
+                    current_part_file = open(current_part_path, 'w', encoding='utf-8', newline='')
+                    current_size = 0
+                    parts.append(current_part_path)
+                
+                current_part_file.write(line)
+                current_size += line_bytes
+            
+            current_part_file.close()
+            
+        # Delete original file
+        file_path.unlink()
+        log_info(f"Split {file_path} into {len(parts)} parts.")
+        return parts
+        
+    except Exception as e:
+        log_error(f"Failed to split file {file_path}: {e}")
+        return [file_path]

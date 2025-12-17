@@ -28,7 +28,7 @@ class ConfigManager:
             "conversion_settings": {
                 "log_level": "INFO",
                 "output_format": "markdown",
-                "max_output_file_size_mb": 50,
+                "max_output_file_size_mb": 20,
                 "batch_processing": {
                     "enabled": True,
                     "max_parallel_jobs": 2,

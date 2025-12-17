@@ -85,13 +85,13 @@ Everything2MD 是一个强大的文档转换工具，可以将各种格式的文
 
 ```powershell
 # 运行所有测试
-.\run_tests.ps1
+.\scripts\run_tests.ps1
 
 # 仅运行 Python 测试
-.\run_tests.ps1 test-python
+.\scripts\run_tests.ps1 test-python
 
 # 仅运行 Shell 测试 (需安装 Git Bash)
-.\run_tests.ps1 test-bats
+.\scripts\run_tests.ps1 test-bats
 ```
 
 ### 运行测试 (Linux/macOS)
@@ -162,7 +162,7 @@ docker compose up -d --build --force-recreate
 ### 图形界面（GUI）入口
 
 - 桌面版 GUI 位于 `src/gui/main.py`，提供文件选择、参数配置、进度与日志显示。
-- `src/gui/fixed_main.py` 与 `src/gui/fixed_main_v2.py` 为历史示例，已不再作为主入口。
+- 历史版本文件（如 `fixed_main.py`）已被归档至 `archive/` 目录。
 
 ### 命令行参数
 

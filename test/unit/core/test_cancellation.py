@@ -5,9 +5,6 @@ import os
 import sys
 from unittest.mock import MagicMock, patch
 
-# Add src to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from src.core.engine import ConversionEngine, CancellationContext
 from src.core.config import ConfigManager
 

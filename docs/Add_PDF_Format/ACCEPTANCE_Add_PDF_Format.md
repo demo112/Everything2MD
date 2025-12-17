@@ -8,13 +8,13 @@
 | Task 2 | 更新 Engine 后缀生成逻辑 | 已完成 | src/core/engine.py 已更新 |
 | Task 3 | 更新 OfficeConverter 支持 PDF | 已完成 | src/core/converters/office.py 已更新 |
 | Task 4 | 更新 PptConverter 支持 PDF | 已完成 | src/core/converters/ppt.py 已更新 |
-| Task 5 | 综合验证 | 已完成 | 新增测试用例 tests/test_pdf_export.py 全部通过 |
+| Task 5 | 综合验证 | 已完成 | 新增测试用例 test/unit/core/converters/test_pdf_integration.py 全部通过 |
 
 ## 验证详情
 
 ### 1. 自动化测试验证
-执行命令：`py -3 -m pytest tests/test_pdf_export.py`
-结果：4 passed in 0.27s
+执行命令：`.\scripts\run_tests.ps1 test-python`
+结果：108 passed (含新增 PDF 相关测试)
 
 测试覆盖点：
 - **Engine 后缀生成**: 确认配置为 PDF 时生成 .pdf 后缀的目标路径。
@@ -30,8 +30,10 @@
 
 ### 3. 问题修复记录
 - **Bug**: 下拉菜单中没有 pdf 的格式。
-- **原因**: 之前的修改仅应用到了 `src/gui/fixed_main_v2.py`，而用户实际运行的是 `src/gui/main.py`。
-- **修复**: 在 `src/gui/main.py` 中更新 `output_format_combo` 的 `values` 列表，加入 "pdf"。
+    - **原因**: 之前的修改仅应用到了 `src/gui/fixed_main_v2.py`，而用户实际运行的是 `src/gui/main.py`。
+    - **修复**: 在 `src/gui/main.py` 中更新 `output_format_combo` 的 `values` 列表，加入 "pdf"。
+- **Project Cleanup**: 项目文件混乱及测试遗漏。
+    - **修复**: 归档旧文件，统一测试脚本路径，修复依赖文件乱码，完善 `.gitignore`。
 
 ## 结论
 所有功能点均已实现并验证通过，满足验收标准。

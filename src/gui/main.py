@@ -54,7 +54,7 @@ class Everything2MDGUI:
         self.output_format = tk.StringVar(value="markdown")
         self.batch_processing = tk.BooleanVar(value=True)
         self.max_parallel_jobs = tk.StringVar(value="2")
-        self.file_filters = tk.StringVar(value="docx,pptx,pdf,txt")
+        self.file_filters = tk.StringVar(value="docx,pptx,pdf,txt,emmx")
         self.soffice_path = tk.StringVar()
         self.pandoc_path = tk.StringVar()
         

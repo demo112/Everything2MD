@@ -4,6 +4,10 @@
 成功使用 PyInstaller 将项目打包为单文件可执行程序 (`Everything2MD.exe`)。
 打包配置已更新，确保了 `pptx2md` 等新增依赖被正确包含。
 
+**2025-12-16 更新**: 
+- 重新打包以包含 PDF 导出功能及相关 Bug 修复。
+- 验证版本包含 `src/gui/main.py` 的最新更改（PDF 选项）。
+
 ## 2. 交付物
 - `dist/Everything2MD.exe`: 最终可执行文件。
 - `Everything2MD.spec`: 更新后的打包配置文件。

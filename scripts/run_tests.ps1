@@ -2,10 +2,15 @@ param (
     [string]$Target = "all"
 )
 
+# 确保在项目根目录运行
+$ScriptDir = $PSScriptRoot
+$ProjectRoot = Split-Path -Parent $ScriptDir
+Set-Location $ProjectRoot
+
 $TestDir = "test"
 $UnitTestDir = "$TestDir/unit"
 $IntegrationTestDir = "$TestDir/integration"
-$PythonTestDir = "$TestDir/python"
+$PythonTestDirs = @("$TestDir/unit", "$TestDir/integration")
 $Bats = "$TestDir/bats/bin/bats"
 $Pytest = "venv/Scripts/pytest"
 
@@ -43,7 +48,7 @@ function Run-Bats {
 
 function Run-Python {
     Write-Host "Running Python tests..." -ForegroundColor Cyan
-    & $Pytest $PythonTestDir
+    & $Pytest $PythonTestDirs
 }
 
 function Clean {

@@ -34,7 +34,7 @@ def test_pdf_direct_conversion_routing(engine, tmp_path):
     # Verify routing
     engine.ppt_converter.convert.assert_called_once_with(input_path, output_path, context=None)
     engine.office_converter.convert.assert_not_called()
-    assert res == output_path
+    assert res == [output_path]
 
 def test_pdf_fallback_suffix_change(engine, tmp_path):
     """Test that engine returns the modified path when suffix changes"""
@@ -49,7 +49,7 @@ def test_pdf_fallback_suffix_change(engine, tmp_path):
     
     res = engine.convert_file(input_path, output_path)
     
-    assert res == fallback_path
+    assert res == [fallback_path]
 
 def test_ppt_converter_pdf_input(ppt_converter, tmp_path):
     """Test PptConverter handles .pdf input directly"""
