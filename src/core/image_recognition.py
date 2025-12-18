@@ -5,6 +5,7 @@ import os
 import time
 from pathlib import Path
 import httpx
+from urllib.parse import unquote
 from .utils import log_info, log_error, log_warn
 
 
@@ -154,7 +155,10 @@ If a field is not applicable, mark it as N/A. Ensure the description is detailed
             for index, match in enumerate(matches, 1):
                 alt_text = match.group(1)
                 img_rel_path = match.group(2)
-
+                
+                # Decode URL-encoded path characters (e.g., %E5%AE%87 -> 宇)
+                img_rel_path = unquote(img_rel_path)
+                
                 # Resolve image path
                 # Image path in MD is relative to MD file location
                 img_full_path = (md_path.parent / img_rel_path).resolve()

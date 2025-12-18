@@ -25,8 +25,9 @@
 -   **Engine**: `src/core/engine.py` 修复了 `ImageRecognizer` 调用逻辑，确保在转换成功且生成 MD 文件后触发。
 -   **ImageRecognizer**:
     -   使用 `asyncio.Semaphore` 控制并发，符合需求。
-    -   **\[NEW\] Prompt Strategy**: 已更新 System Prompt，要求输出 `Visual Type`, `Title`, `Data Points`, `Trends / Insights` 等结构化字段。
-    -   **\[NEW\] Injection Format**: 修复了多行描述的 Markdown 注入逻辑，确保每行都带有 `>` 前缀。
+    - **[NEW] Prompt Strategy**: 已更新 System Prompt，要求输出 `Visual Type`, `Title`, `Data Points`, `Trends / Insights` 等结构化字段。
+    - **[NEW] Injection Format**: 修复了多行描述的 Markdown 注入逻辑，确保每行都带有 `> ` 前缀。
+    - **[FIX] URL Decoding**: 修复了图片路径包含 URL 编码字符（如中文）时导致无法找到文件的问题。
 
 ## 遗留问题 / 后续计划
 

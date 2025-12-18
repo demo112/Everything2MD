@@ -90,5 +90,53 @@ async def test_process_markdown_disabled(tmp_path):
     assert md_file.read_text(encoding="utf-8") == md_content
 
 
+@pytest.mark.asyncio
+async def test_process_markdown_with_encoded_path(tmp_path, mock_config):
+    # Setup
+    md_file = tmp_path / "test_encoded.md"
+    img_dir = tmp_path / "media"
+    img_dir.mkdir()
+    
+    # Create image with Chinese name
+    img_name = "中文图片.png"
+    img_file = img_dir / img_name
+    img_file.write_bytes(b"fake_image_content")
+    
+    # URL encoded path: media/%E4%B8%AD%E6%96%87%E5%9B%BE%E7%89%87.png
+    encoded_path = "media/%E4%B8%AD%E6%96%87%E5%9B%BE%E7%89%87.png"
+    
+    md_content = f"""
+# Test Encoded Path
+
+![Chinese Image]({encoded_path})
+"""
+    md_file.write_text(md_content, encoding="utf-8")
+    
+    recognizer = ImageRecognizer(mock_config)
+    
+    # Mock httpx.AsyncClient
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "choices": [{"message": {"content": "Description for Chinese image."}}]
+    }
+    
+    mock_client = AsyncMock()
+    mock_client.post.return_value = mock_response
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+    
+    with patch("httpx.AsyncClient", return_value=mock_client):
+        # Run
+        await recognizer._process_markdown_async(md_file)
+        
+    # Verify
+    new_content = md_file.read_text(encoding="utf-8")
+    expected_snippet = "> **图解**:\n> Description for Chinese image."
+    
+    assert expected_snippet in new_content
+    # Original link should be preserved
+    assert f"![Chinese Image]({encoded_path})" in new_content
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
