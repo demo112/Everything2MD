@@ -3,6 +3,12 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 import subprocess
 import sys
+# Try import pdfminer to verify environment
+try:
+    import pdfminer
+except ImportError:
+    pdfminer = None
+
 from src.core.converters.ppt import PptConverter
 
 
@@ -54,8 +60,8 @@ def test_convert_ppt_no_soffice(mock_soffice, converter, tmp_path):
         converter.convert(input_file, output_file)
 
 
-@patch("subprocess.run")
-def test_convert_pptx_pptx2md(mock_run, converter, tmp_path):
+@patch("src.core.converters.ppt.log_info")
+def test_convert_pptx_pptx2md(mock_log, converter, tmp_path):
     # This requires pptx2md importable or we mock the import?
     # The code tries to import pptx2md.
     # Since we likely don't have it in test env, it might raise ImportError
@@ -68,14 +74,26 @@ def test_convert_pptx_pptx2md(mock_run, converter, tmp_path):
     output_file = tmp_path / "test.md"
 
     # Mock the import check in _convert_pptx
-    with patch.dict(
-        "sys.modules", {"pptx2md.parser": MagicMock(), "pptx2md.outputter": MagicMock()}
-    ):
+    # We need to mock both pptx2md.entry and pptx2md.types
+    mock_convert = MagicMock()
+    mock_config_cls = MagicMock()
+    
+    modules = {
+        "pptx2md": MagicMock(),
+        "pptx2md.entry": MagicMock(convert=mock_convert),
+        "pptx2md.types": MagicMock(ConversionConfig=mock_config_cls),
+    }
+
+    with patch.dict("sys.modules", modules):
         converter.convert(input_file, output_file)
 
-        # Should call subprocess for pptx2md
-        mock_run.assert_called_once()
-        assert "pptx2md" in mock_run.call_args[0][0]
+        # Should call pptx2md.entry.convert
+        mock_convert.assert_called_once()
+        # Verify ConversionConfig was created with correct paths
+        mock_config_cls.assert_called_once()
+        args = mock_config_cls.call_args
+        assert args.kwargs['pptx_path'] == input_file
+        assert args.kwargs['output_path'] == output_file
 
 
 def test_convert_pptx_import_fail_fallback(converter, tmp_path):
@@ -176,10 +194,26 @@ def test_fallback_pdf_parsing_empty(converter, tmp_path):
     input_file.touch()
     output_file = tmp_path / "test.md"
 
-    with patch("pdfminer.high_level.extract_text", return_value="   "), patch(
+    # Mock pdfminer modules to avoid ImportErrors if not installed
+    mock_pdfminer = MagicMock()
+    mock_high_level = MagicMock()
+    mock_high_level.extract_text.return_value = "   "
+    
+    modules = {
+        "pdfminer": mock_pdfminer,
+        "pdfminer.high_level": mock_high_level,
+    }
+
+    with patch.dict("sys.modules", modules), patch(
         "shutil.copy"
     ) as mock_copy:
 
+        # We also need to patch where it's imported in the source if it uses 'from ... import ...'
+        # But based on the error, the patch("pdfminer.high_level.extract_text") was failing to resolve.
+        # Here we manually set up the mock so we don't need patch(target_string) which triggers import.
+        # However, the code under test (converter._fallback_pdf_parsing) needs to import it.
+        # If the code does `from pdfminer.high_level import extract_text`, it will use our mock in sys.modules.
+        
         res = converter._fallback_pdf_parsing(input_file, output_file)
 
         # Should copy because text is empty/whitespace
@@ -192,9 +226,17 @@ def test_fallback_pdf_parsing_exception(converter, tmp_path):
     input_file.touch()
     output_file = tmp_path / "test.md"
 
-    with patch(
-        "pdfminer.high_level.extract_text", side_effect=Exception("Boom")
-    ), patch("shutil.copy") as mock_copy:
+    # Mock pdfminer modules
+    mock_pdfminer = MagicMock()
+    mock_high_level = MagicMock()
+    mock_high_level.extract_text.side_effect = Exception("Boom")
+    
+    modules = {
+        "pdfminer": mock_pdfminer,
+        "pdfminer.high_level": mock_high_level,
+    }
+
+    with patch.dict("sys.modules", modules), patch("shutil.copy") as mock_copy:
 
         res = converter._fallback_pdf_parsing(input_file, output_file)
 

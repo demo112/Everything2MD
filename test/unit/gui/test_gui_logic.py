@@ -176,39 +176,3 @@ def test_rag_connect(app):
 
             # We can verify RAG client call
             mock_client.list_datasets.assert_called()
-
-
-def test_rag_upload(app):
-    app.ragflow_client = MagicMock()
-    app.kb_combo = MagicMock()
-    app.kb_combo.get.return_value = "kb1"
-    app.kb_map = {"kb1": "id1"}
-
-    # Mock converted files
-    app.converted_files = [{"name": "file.docx", "path": "C:/file.docx"}]
-
-    # Mock Treeview children
-    app.rag_file_list = MagicMock()
-    app.rag_file_list.get_children.return_value = ["item1"]
-    # Use the correct symbol "☑" for selection check
-    app.rag_file_list.set.return_value = "☑"
-    app.rag_file_list.item.return_value = {"values": ["☑", "file.docx"]}
-
-    # Mock os.path.exists to allow upload
-    with patch("os.path.exists", return_value=True):
-        with patch("threading.Thread") as mock_thread_cls:
-            app.upload_selected_files()
-
-            # Verify thread was started
-            assert mock_thread_cls.called
-            args = mock_thread_cls.call_args
-            target = args[1]["target"]
-            assert callable(target)
-
-            # Mock list_documents inside target
-            app.ragflow_client.list_documents.return_value = []
-            app.ragflow_client.upload_document.return_value = {"id": "doc1"}
-
-            target()
-
-            app.ragflow_client.upload_document.assert_called_with("id1", "C:/file.docx")

@@ -128,9 +128,23 @@ class ConversionEngine:
                         and out_file.suffix.lower() == ".md"
                     ):
                         try:
-                            self.image_recognizer.process_markdown(out_file)
+                            # Pass input_path as source_path to allow recovery from source
+                            self.image_recognizer.process_markdown(out_file, input_path)
                         except Exception as e:
                             log_warn(f"图片识别失败 {out_file}: {e}")
+
+            # Structure Cleaning Processing
+            if self.config.get("struct_clean_enabled") and output_files:
+                for out_file in output_files:
+                    if (
+                        out_file
+                        and out_file.exists()
+                        and out_file.suffix.lower() == ".md"
+                    ):
+                        try:
+                            self.structure_cleaner.clean_markdown(out_file)
+                        except Exception as e:
+                            log_warn(f"结构化清洗失败 {out_file}: {e}")
 
             if status_callback:
                 status_callback(str(input_path), "success", "转换成功")

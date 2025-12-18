@@ -209,6 +209,26 @@ class OfficeConverter(BaseConverter):
                 # 无 Pandoc，直接输出 HTML
                 shutil.copy(html_file, output_path)
 
+            # 3. Move extracted images to output directory
+            # LibreOffice generates images alongside HTML in temp dir
+            image_extensions = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg"}
+            count_moved = 0
+            for file_path in temp_dir_path.iterdir():
+                if file_path.is_file() and file_path.suffix.lower() in image_extensions:
+                    # Skip the input file itself if it happened to be an image (unlikely for OfficeConverter)
+                    if file_path.name == safe_input.name:
+                        continue
+                        
+                    dest_path = output_path.parent / file_path.name
+                    try:
+                        shutil.copy2(str(file_path), str(dest_path))
+                        count_moved += 1
+                    except Exception as e:
+                        log_warn(f"Failed to copy image {file_path.name}: {e}")
+            
+            if count_moved > 0:
+                log_info(f"Moved {count_moved} images to output directory.")
+
             log_info(f"成功转换Office文档: {input_path} -> {output_path}")
             return output_path
 

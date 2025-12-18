@@ -31,5 +31,19 @@
   "ragflow_settings": {
     "api_base_url": "http://192.168.150.76:8081",
     "api_key": "ragflow-8DLY1LXzljiZ_WxirLd3q4NBgGrkR8Mt1ZgbfkN3zRw"
+  },
+  "image_recognition": {
+    "enabled": false,
+    "api_base": "https://api.openai.com/v1",
+    "api_key": "",
+    "model": "gpt-4-vision-preview",
+    "max_concurrency": 2,
+    "context_length": 500
+  },
+  "structure_cleaning": {
+    "enabled": false,
+    "api_base": "https://api.openai.com/v1",
+    "api_key": "",
+    "model": "gpt-4"
   }
 }

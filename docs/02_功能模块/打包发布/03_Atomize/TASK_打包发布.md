@@ -1,20 +1,24 @@
 # TASK_打包发布
 
+```mermaid
+graph TD
+    T1[实现打包脚本] --> T2[执行打包并验证]
+```
+
 ## 任务清单
 
-- [ ] **Task 1: 更新 Spec 文件**
-    - 文件: `Everything2MD.spec`
-    - 内容: 添加 `pptx2md.entry`, `pptx2md.types` 到 `hiddenimports`。
-    - 依赖: 无。
+### Task 1: 实现打包脚本
+-   **输入**: `Everything2MD.spec`, `README.md`
+-   **输出**: `scripts/package_release.py`
+-   **描述**: 编写 Python 脚本，自动安装 `py7zr`，调用 PyInstaller，然后将 exe 和 readme 打包成 7z。
+-   **验收标准**: 脚本代码无语法错误，逻辑清晰，包含必要的错误处理。
 
-- [ ] **Task 2: 清理环境**
-    - 操作: 删除 `build/` 和 `dist/` 目录。
-    - 目的: 防止旧文件干扰。
-
-- [ ] **Task 3: 执行构建**
-    - 命令: `pyinstaller Everything2MD.spec --clean --noconfirm`
-    - 验证: `dist/Everything2MD.exe` 生成。
-
-- [ ] **Task 4: 冒烟测试**
-    - 操作: 运行生成的 EXE。
-    - 验证: GUI 正常显示，无立即崩溃。
+### Task 2: 执行打包并验证
+-   **输入**: `scripts/package_release.py`
+-   **输出**: `release/*.7z`
+-   **描述**: 在终端运行脚本，观察输出日志，检查生成的 7z 文件内容。
+-   **验收标准**:
+    -   脚本运行成功，无报错。
+    -   `release/` 目录下生成了带日期的 7z 文件。
+    -   解压 7z 文件，包含 `Everything2MD.exe` 和 `README.md`。
+    -   运行 exe 能启动 GUI。

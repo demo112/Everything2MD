@@ -3,7 +3,7 @@
 ## 任务执行概览
 
 | 任务ID | 任务名称 | 状态 | 备注 |
-|:-----------------|:-----------------|:-----------------|:-----------------|
+|:---|:---|:---|:---|
 | Task 1.1 | Update requirements.txt | 已完成 | `httpx` 已存在 |
 | Task 1.2 | Update src/core/config.py | 已完成 | 添加了 image_recognition 配置项 |
 | Task 2.1 | Create src/core/image_recognition.py | 已完成 | 核心逻辑已实现 |
@@ -16,7 +16,12 @@
 
 ### 1. 自动化测试验证
 
-执行命令：`python -m pytest tests/test_image_recognition.py` 结果：Passed - **Mock Config**: 验证了配置读取逻辑。 - **Mock HTTPX**: 验证了图片上传和 API 调用逻辑。 - **Process Markdown**: 验证了 Markdown 解析、图片路径解析和文本注入逻辑。 - **Disabled State**: 验证了功能禁用时不会触发 API 调用。
+执行命令：`python -m pytest tests/test_image_recognition.py`
+结果：Passed
+- **Mock Config**: 验证了配置读取逻辑。
+- **Mock HTTPX**: 验证了图片上传和 API 调用逻辑。
+- **Process Markdown**: 验证了 Markdown 解析、图片路径解析和文本注入逻辑。
+- **Disabled State**: 验证了功能禁用时不会触发 API 调用。
 
 ### 2. 代码逻辑检查
 
@@ -25,9 +30,12 @@
 -   **Engine**: `src/core/engine.py` 修复了 `ImageRecognizer` 调用逻辑，确保在转换成功且生成 MD 文件后触发。
 -   **ImageRecognizer**:
     -   使用 `asyncio.Semaphore` 控制并发，符合需求。
-    - **[NEW] Prompt Strategy**: 已更新 System Prompt，要求输出 `Visual Type`, `Title`, `Data Points`, `Trends / Insights` 等结构化字段。
-    - **[NEW] Injection Format**: 修复了多行描述的 Markdown 注入逻辑，确保每行都带有 `> ` 前缀。
-    - **[FIX] URL Decoding**: 修复了图片路径包含 URL 编码字符（如中文）时导致无法找到文件的问题。
+    -   **[NEW] Prompt Strategy**: 已更新 System Prompt，要求输出 `Visual Type`, `Title`, `Data Points`, `Trends / Insights` 等结构化字段。
+    -   **[NEW] Injection Format**: 修复了多行描述的 Markdown 注入逻辑，确保每行都带有 `>` 前缀。
+    -   **[FIX] URL Decoding**: 修复了图片路径包含 URL 编码字符（如中文）时导致无法找到文件的问题。
+    -   **[FIX] Image Persistence**: 修复了 LibreOffice 转换生成的图片在临时目录被删除，导致 Markdown 中图片丢失的问题。现在会将图片从临时目录移动到输出目录。
+    - **[NEW] Source Fallback**: 新增了图片降级恢复机制。当 Markdown 引用的图片文件丢失时，尝试直接从源文件 (.docx) 中提取图片。
+    - **[REFINE] Language Enforcement**: 强制大模型输出简体中文 (Simplified Chinese)，无论图片内容语言为何。
 
 ## 遗留问题 / 后续计划
 

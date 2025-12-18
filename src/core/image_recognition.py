@@ -3,6 +3,7 @@ import base64
 import re
 import os
 import time
+import zipfile
 from pathlib import Path
 import httpx
 from urllib.parse import unquote
@@ -22,6 +23,7 @@ class ImageRecognizer:
             "api_key": self.config.get("img_rec_api_key", ""),
             "model": self.config.get("img_rec_model", "gpt-4-vision-preview"),
             "concurrency": int(self.config.get("img_rec_concurrency", 2)),
+            "context_length": int(self.config.get("img_rec_context_length", 500)),
         }
 
     async def _encode_image(self, image_path: Path) -> str:
@@ -39,6 +41,7 @@ class ImageRecognizer:
         semaphore: asyncio.Semaphore,
         index: int,
         total: int,
+        context: str = "",
     ) -> str:
         cfg = self._get_config()
         if not image_path.exists():
@@ -66,13 +69,19 @@ class ImageRecognizer:
                             "content": [
                                 {
                                     "type": "text",
-                                    "text": """Please analyze this image and provide a structured description in the following format:
+                                    "text": f"""Please analyze this image and provide a structured description in the following format:
 - **Visual Type**: [e.g., Chart, Diagram, Screenshot, Photo, Table]
 - **Title**: [Title of the chart or image if available]
 - **Data Points**: [Key data values, text content, or specific numbers visible]
 - **Trends / Insights**: [Analysis of what the image shows, trends, or the main message]
 
-If a field is not applicable, mark it as N/A. Ensure the description is detailed and captures all text and visual elements. Please provide the content in the same language as the text in the image (default to Chinese if uncertain).""",
+- **Context**: The following text surrounds the image in the document, which may provide context:
+\"\"\"
+{context}
+\"\"\"
+
+If a field is not applicable, mark it as N/A. Ensure the description is detailed and captures all text and visual elements. 
+IMPORTANT: You MUST provide the output content strictly in SIMPLIFIED CHINESE (简体中文), regardless of the language in the image.""",
                                 },
                                 {
                                     "type": "image_url",
@@ -122,7 +131,7 @@ If a field is not applicable, mark it as N/A. Ensure the description is detailed
                 )
                 return ""
 
-    async def _process_markdown_async(self, md_path: Path):
+    async def _process_markdown_async(self, md_path: Path, source_path: Path = None):
         cfg = self._get_config()
         if not cfg["enabled"] or not cfg["api_key"]:
             log_info("Image recognition disabled or API key missing.")
@@ -162,10 +171,28 @@ If a field is not applicable, mark it as N/A. Ensure the description is detailed
                 # Resolve image path
                 # Image path in MD is relative to MD file location
                 img_full_path = (md_path.parent / img_rel_path).resolve()
+                
+                # If image is missing, try to extract from source (if DOCX)
+                if not img_full_path.exists() and source_path:
+                    log_warn(f"Image not found: {img_full_path}, attempting to extract from source...")
+                    # Extract filename from path
+                    img_filename = img_full_path.name
+                    extracted_path = self._extract_image_from_source(
+                        source_path, img_filename, img_full_path.parent
+                    )
+                    if extracted_path:
+                        img_full_path = extracted_path
+
+                # Extract context
+                start, end = match.span()
+                context_len = cfg["context_length"]
+                prev_text = content[max(0, start - context_len) : start]
+                next_text = content[end : min(len(content), end + context_len)]
+                context = f"Previous text:\n{prev_text}\n\nNext text:\n{next_text}"
 
                 tasks.append(
                     self._process_single_image(
-                        img_full_path, client, semaphore, index, total_images
+                        img_full_path, client, semaphore, index, total_images, context
                     )
                 )
 
@@ -204,9 +231,46 @@ If a field is not applicable, mark it as N/A. Ensure the description is detailed
             md_path.write_text(new_content, encoding="utf-8")
             log_info(f"Updated {md_path.name} with image descriptions.")
 
-    def process_markdown(self, md_path: Path):
+    def _extract_image_from_source(self, source_path: Path, image_name: str, target_dir: Path) -> Path:
+        """
+        Attempt to extract image from source document (DOCX) if missing in output.
+        DOCX is a zip file, images are in word/media/
+        """
+        if not source_path or source_path.suffix.lower() != ".docx":
+            return None
+
+        try:
+            with zipfile.ZipFile(source_path, 'r') as zf:
+                file_list = zf.namelist()
+                target_zip_path = None
+                candidate = f"word/media/{image_name}"
+                if candidate in file_list:
+                    target_zip_path = candidate
+                else:
+                    for f in file_list:
+                        if f.endswith(f"media/{image_name}"):
+                            target_zip_path = f
+                            break
+                
+                if target_zip_path:
+                    if not target_dir.exists():
+                        target_dir.mkdir(parents=True, exist_ok=True)
+                        
+                    target_file = target_dir / image_name
+                    with zf.open(target_zip_path) as source, open(target_file, "wb") as target:
+                        target.write(source.read())
+                        
+                    log_info(f"Recovered image {image_name} from source docx.")
+                    return target_file
+                    
+        except Exception as e:
+            log_warn(f"Failed to extract image from source: {e}")
+            
+        return None
+
+    def process_markdown(self, md_path: Path, source_path: Path = None):
         """Sync wrapper for async processing"""
         try:
-            asyncio.run(self._process_markdown_async(md_path))
+            asyncio.run(self._process_markdown_async(md_path, source_path))
         except Exception as e:
             log_error(f"Error in image recognition process: {e}")

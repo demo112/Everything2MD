@@ -135,3 +135,18 @@ class RAGFlowClient:
         except Exception as e:
             log_error(f"Failed to start parsing: {e}")
             raise
+
+    def delete_documents(self, dataset_id: str, ids: list[str]):
+        """Delete documents from a dataset"""
+        url = f"{self.base_url}/api/v1/datasets/{dataset_id}/documents"
+
+        payload = {"ids": ids}
+
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                log_info(f"RAGFlow API Request: DELETE {url} with {len(ids)} IDs")
+                resp = client.request("DELETE", url, headers=self.headers, json=payload)
+                return self._handle_response(resp, url)
+        except Exception as e:
+            log_error(f"Failed to delete documents: {e}")
+            raise

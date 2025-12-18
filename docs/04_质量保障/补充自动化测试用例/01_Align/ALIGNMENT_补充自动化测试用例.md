@@ -26,13 +26,26 @@
 -   **Mock 优先**：鉴于外部依赖（API, Office 软件）的不稳定性，单元测试应优先使用 Mock。
 -   **Pytest 框架**：沿用项目现有的 `pytest` 框架。
 
-## 4. 关键决策点
--   **Mock 深度**：是 Mock 整个 `httpx` 库，还是 Mock `_handle_response`？
-    -   *决策*：Mock `httpx.Client` 以验证 URL、Header 和 Params 是否正确。
--   **测试文件位置**：
-    -   `tests/test_ragflow_client.py`
-    -   `tests/test_ppt_converter.py`
-    -   `tests/test_office_converter.py`
+## 4. 需求分析 (Updated)
+### 4.1 原始需求
+- 为核心功能模块（RAGFlowClient, Converters）补充自动化测试用例。
+- **新增需求 (v1.1)**: 用户反馈新增功能覆盖不够，经分析主要指 GUI 层 (`src/gui/main.py`) 缺乏测试覆盖 (目前 0%)。
+
+### 4.2 范围界定
+- **In Scope**:
+    - `src/core/ragflow_client.py`: API 交互逻辑 (已完成)
+    - `src/core/converters/`: 转换器核心逻辑 (已完成)
+    - `src/gui/main.py`: 
+        - 配置加载与保存逻辑
+        - 按钮事件绑定的业务逻辑调用 (如触发转换、连接 RAGFlow)
+        - 界面状态更新逻辑 (Mock Tkinter)
+- **Out of Scope**:
+    - 真实的 UI 渲染测试 (Pixel-perfect testing)
+    - `tkinter` 库本身的测试
+
+### 4.3 关键挑战与策略
+- **挑战**: GUI 代码强依赖 `tkinter`，在无头环境难以运行。
+- **策略**: 使用 `unittest.mock` 对 `tkinter` 进行全面 Mock，将 UI 组件视为“黑盒”，只验证 Controller 层的逻辑（即 ViewModel 逻辑）。
 
 ## 5. 最终共识
 -   使用 `pytest` + `unittest.mock`。

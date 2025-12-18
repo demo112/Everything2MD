@@ -46,6 +46,20 @@ class ConfigManager:
                 "api_base_url": "http://192.168.150.76:8081",
                 "api_key": "ragflow-8DLY1LXzljiZ_WxirLd3q4NBgGrkR8Mt1ZgbfkN3zRw",
             },
+            "image_recognition": {
+                "enabled": False,
+                "api_base": "https://api.openai.com/v1",
+                "api_key": "",
+                "model": "gpt-4-vision-preview",
+                "max_concurrency": 2,
+                "context_length": 500,
+            },
+            "structure_cleaning": {
+                "enabled": False,
+                "api_base": "https://api.openai.com/v1",
+                "api_key": "",
+                "model": "gpt-4",
+            },
         }
 
     def load_config(self):
@@ -136,9 +150,26 @@ class ConfigManager:
             return self.config_data.get("image_recognition", {}).get("api_key", default)
         elif key == "img_rec_model":
             return self.config_data.get("image_recognition", {}).get("model", default)
-        elif key == "img_rec_concurrency":
+        elif key == "img_rec_context_length":
             return self.config_data.get("image_recognition", {}).get(
-                "max_concurrency", default
+                "context_length", default
+            )
+        # Structure Cleaning Settings
+        elif key == "struct_clean_enabled":
+            return self.config_data.get("structure_cleaning", {}).get(
+                "enabled", default
+            )
+        elif key == "struct_clean_api_base":
+            return self.config_data.get("structure_cleaning", {}).get(
+                "api_base", default
+            )
+        elif key == "struct_clean_api_key":
+            return self.config_data.get("structure_cleaning", {}).get(
+                "api_key", default
+            )
+        elif key == "struct_clean_model":
+            return self.config_data.get("structure_cleaning", {}).get(
+                "model", default
             )
         return default
 
@@ -214,5 +245,29 @@ class ConfigManager:
             self.config_data["image_recognition"]["max_concurrency"] = (
                 int(value) if str(value).isdigit() else 2
             )
+        elif key == "img_rec_context_length":
+            if "image_recognition" not in self.config_data:
+                self.config_data["image_recognition"] = {}
+            self.config_data["image_recognition"]["context_length"] = (
+                int(value) if str(value).isdigit() else 500
+            )
+
+        # Structure Cleaning Settings
+        elif key == "struct_clean_enabled":
+            if "structure_cleaning" not in self.config_data:
+                self.config_data["structure_cleaning"] = {}
+            self.config_data["structure_cleaning"]["enabled"] = value
+        elif key == "struct_clean_api_base":
+            if "structure_cleaning" not in self.config_data:
+                self.config_data["structure_cleaning"] = {}
+            self.config_data["structure_cleaning"]["api_base"] = value
+        elif key == "struct_clean_api_key":
+            if "structure_cleaning" not in self.config_data:
+                self.config_data["structure_cleaning"] = {}
+            self.config_data["structure_cleaning"]["api_key"] = value
+        elif key == "struct_clean_model":
+            if "structure_cleaning" not in self.config_data:
+                self.config_data["structure_cleaning"] = {}
+            self.config_data["structure_cleaning"]["model"] = value
 
         self.save_config()

@@ -11,6 +11,7 @@ import logging
 import threading
 import queue
 import json
+import re
 from pathlib import Path
 
 # Add src to sys.path to allow imports
@@ -29,6 +30,8 @@ try:
         log_warn,
         get_soffice_path,
         get_pandoc_path,
+        calculate_file_hash,
+        parse_versioned_filename,
     )
     from core.ragflow_client import RAGFlowClient
     from core.logger import LogManager
@@ -44,6 +47,7 @@ except ImportError as e:
         log_warn,
         get_soffice_path,
         get_pandoc_path,
+        parse_versioned_filename,
     )
     from src.core.ragflow_client import RAGFlowClient
     from src.core.logger import LogManager
@@ -51,18 +55,22 @@ except ImportError as e:
 
 class Everything2MDGUI:
     def __init__(self, root):
+        print("DEBUG: Everything2MDGUI.__init__ start")
         self.root = root
         self.root.title("Everything2MD - 文档转换工具")
         self.root.geometry("700x600")
 
         # 初始化核心组件
+        print("DEBUG: Init ConfigManager")
         self.config_manager = ConfigManager()
+        print("DEBUG: Init ConversionEngine")
         self.engine = ConversionEngine(self.config_manager)
 
         # Tkinter Exception Hook
         self.root.report_callback_exception = self.handle_tk_exception
 
         # 初始化变量
+        print("DEBUG: Init Variables")
         self.input_path = tk.StringVar()
         self.output_path = tk.StringVar()
         self.log_level = tk.StringVar(value="INFO")
@@ -88,6 +96,12 @@ class Everything2MDGUI:
         self.img_rec_model = tk.StringVar(value="gpt-4-vision-preview")
         self.img_rec_concurrency = tk.StringVar(value="2")
 
+        # 结构化清洗变量
+        self.struct_clean_enabled = tk.BooleanVar(value=False)
+        self.struct_clean_api_base = tk.StringVar(value="https://api.openai.com/v1")
+        self.struct_clean_api_key = tk.StringVar()
+        self.struct_clean_model = tk.StringVar(value="gpt-4")
+
         self.is_converting = False
 
         # 日志队列
@@ -108,7 +122,9 @@ class Everything2MDGUI:
         self.create_widgets()
 
         # 启动日志处理循环
+        print("DEBUG: Start log queue")
         self.process_log_queue()
+        print("DEBUG: Everything2MDGUI.__init__ done")
 
     def handle_tk_exception(self, exc_type, exc_value, exc_traceback):
         """Handle Tkinter exceptions by logging them and showing an error box."""
@@ -681,6 +697,12 @@ class Everything2MDGUI:
         self.config_manager.set("img_rec_model", self.img_rec_model.get())
         self.config_manager.set("img_rec_concurrency", self.img_rec_concurrency.get())
 
+        # Save Structure Cleaning config
+        self.config_manager.set("struct_clean_enabled", self.struct_clean_enabled.get())
+        self.config_manager.set("struct_clean_api_base", self.struct_clean_api_base.get())
+        self.config_manager.set("struct_clean_api_key", self.struct_clean_api_key.get())
+        self.config_manager.set("struct_clean_model", self.struct_clean_model.get())
+
         try:
             self.config_manager.save_config()
             self.status_bar.config(text="配置已保存")
@@ -917,10 +939,42 @@ class Everything2MDGUI:
         )
         spin.grid(row=4, column=1, sticky="w", pady=2)
 
+        # 2. Structure Cleaning Config
+        struct_frame = ttk.LabelFrame(
+            parent, text="文档结构化清洗配置 (LLM)", padding="10"
+        )
+        struct_frame.grid(row=1, column=0, sticky="ew", pady=5)
+        struct_frame.columnconfigure(1, weight=1)
+
+        # Enable Switch
+        ttk.Checkbutton(
+            struct_frame, text="启用结构化清洗功能", variable=self.struct_clean_enabled
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=5)
+
+        # API Base
+        ttk.Label(struct_frame, text="API Base URL:").grid(
+            row=1, column=0, sticky="w", pady=2
+        )
+        ttk.Entry(struct_frame, textvariable=self.struct_clean_api_base).grid(
+            row=1, column=1, sticky="ew", pady=2
+        )
+
+        # API Key
+        ttk.Label(struct_frame, text="API Key:").grid(row=2, column=0, sticky="w", pady=2)
+        ttk.Entry(struct_frame, textvariable=self.struct_clean_api_key, show="*").grid(
+            row=2, column=1, sticky="ew", pady=2
+        )
+
+        # Model
+        ttk.Label(struct_frame, text="模型名称:").grid(row=3, column=0, sticky="w", pady=2)
+        ttk.Entry(struct_frame, textvariable=self.struct_clean_model).grid(
+            row=3, column=1, sticky="ew", pady=2
+        )
+
         # Explanation
-        info_text = "说明:\n1. 启用后，转换过程中的图片将被发送给 LLM 进行分析。\n2. 分析结果将插入到 Markdown 文档中。\n3. 请确保 API 支持 OpenAI 兼容的 Vision 接口 (如 gpt-4-vision-preview)。"
+        info_text = "说明:\n1. 图片识别: 启用后，转换过程中的图片将被发送给 LLM 进行分析，结果插入文档。\n2. 结构化清洗: 启用后，利用 LLM 对 Markdown 格式进行标准化清洗（仅处理格式，不修改内容）。\n3. 请确保 API 支持 OpenAI 兼容接口。"
         ttk.Label(parent, text=info_text, justify=tk.LEFT, foreground="gray").grid(
-            row=1, column=0, sticky="w", pady=10
+            row=2, column=0, sticky="w", pady=10
         )
 
     def on_rag_list_click(self, event):
@@ -998,7 +1052,7 @@ class Everything2MDGUI:
                 log_info(f"刷新失败: {e}")
                 self.root.after(
                     0,
-                    lambda: [
+                    lambda e=e: [
                         messagebox.showerror("错误", f"刷新失败: {e}"),
                         self.status_bar.config(text="刷新失败"),
                     ],
@@ -1102,23 +1156,26 @@ class Everything2MDGUI:
             )
 
             # Fetch existing documents for deduplication
-            existing_docs = set()
+            existing_map = {}  # basename -> (doc_id, version_hash)
             try:
                 # Fetch all docs (or at least first page with keywords search in future optimization)
                 # For now, we list first 1000? Or just iterate.
-                # Assuming not too many files.
                 res = self.ragflow_client.list_documents(kb_id, page=1, page_size=1000)
+                docs = []
                 if isinstance(res, dict) and "docs" in res:
-                    for doc in res["docs"]:
-                        existing_docs.add(doc.get("name"))
-                # Handle list response if structure differs
+                    docs = res["docs"]
                 elif isinstance(res, list):
-                    for doc in res:
-                        existing_docs.add(doc.get("name"))
+                    docs = res
+                
+                for doc in docs:
+                    d_name = doc.get("name")
+                    d_id = doc.get("id")
+                    if d_name and d_id:
+                        base, v_hash = parse_versioned_filename(d_name)
+                        existing_map[base] = (d_id, v_hash)
+
             except Exception as e:
                 log_warn(f"Failed to list documents for deduplication: {e}")
-                # Continue without deduplication? Or stop?
-                # Let's continue but log warning.
 
             self.root.after(
                 0,
@@ -1133,18 +1190,93 @@ class Everything2MDGUI:
             failed_files = []
 
             for iid, f_obj in files_to_upload:
-                if f_obj["name"] in existing_docs:
-                    log_info(f"跳过已存在的文件: {f_obj['name']}")
+                local_path = f_obj["path"]
+                local_name = f_obj["name"]
+                
+                if not os.path.exists(local_path):
+                     # Maybe it was renamed in previous run?
+                     # Try to find versioned file? 
+                     # For now, just log error if missing.
+                     if not os.path.exists(local_path):
+                         err_msg = "文件不存在(可能已被重命名)"
+                         failed_files.append(f"{local_name}: {err_msg}")
+                         self.root.after(0, lambda i=iid: self.rag_file_list.set(i, column="upload_status", value="失败: 文件丢失"))
+                         fail_count += 1
+                         continue
+
+                # Parse local filename to handle re-upload of versioned files
+                local_base_full, _ = parse_versioned_filename(local_name)
+
+                # Calculate local hash
+                local_hash = calculate_file_hash(local_path)
+                
+                should_delete_remote = False
+                remote_id_to_delete = None
+                
+                if local_base_full in existing_map:
+                    remote_id, remote_hash = existing_map[local_base_full]
+                    if remote_hash == local_hash:
+                        log_info(f"跳过已存在的文件(Hash一致): {local_base_full}")
+                        self.root.after(
+                            0,
+                            lambda i=iid: self.rag_file_list.set(
+                                i, column="upload_status", value="跳过(一致)"
+                            ),
+                        )
+                        skip_count += 1
+                        continue
+                    else:
+                        log_info(f"发现新版本: {local_base_full} (Old: {remote_hash}, New: {local_hash})")
+                        should_delete_remote = True
+                        remote_id_to_delete = remote_id
+
+                try:
                     self.root.after(
                         0,
                         lambda i=iid: self.rag_file_list.set(
-                            i, column="upload_status", value="跳过(已存在)"
+                            i, column="upload_status", value="准备上传..."
                         ),
                     )
-                    skip_count += 1
-                    continue
 
-                try:
+                    # 1. Delete remote if needed
+                    if should_delete_remote and remote_id_to_delete:
+                        try:
+                            self.root.after(0, lambda i=iid: self.rag_file_list.set(i, column="upload_status", value="清理旧版本..."))
+                            self.ragflow_client.delete_documents(kb_id, [remote_id_to_delete])
+                        except Exception as e:
+                            log_warn(f"Failed to delete old version for {local_base_full}: {e}")
+                            # Continue to upload anyway
+
+                    # 2. Rename local file
+                    name_stem = Path(local_base_full).stem
+                    name_suffix = Path(local_base_full).suffix
+                    upload_name = local_base_full
+                    if local_hash:
+                        upload_name = f"{name_stem}_v{local_hash}{name_suffix}"
+                    
+                    upload_path = str(Path(local_path).parent / upload_name)
+                    
+                    # Clean old local versions
+                    parent_dir = Path(local_path).parent
+                    try:
+                        for f in parent_dir.glob(f"{name_stem}_v*{name_suffix}"):
+                            if f.name != upload_name and f.name != local_name:
+                                try:
+                                    os.remove(f)
+                                    log_info(f"Deleted old local version: {f.name}")
+                                except Exception as e:
+                                    log_warn(f"Failed to delete old local file {f.name}: {e}")
+                    except Exception as e:
+                        log_warn(f"Error cleaning old local files: {e}")
+
+                    # Rename current file to upload name
+                    if local_path != upload_path:
+                        # If upload_path exists, remove it first
+                        if os.path.exists(upload_path):
+                            os.remove(upload_path)
+                        os.rename(local_path, upload_path)
+                        local_path = upload_path # Update path for upload
+
                     self.root.after(
                         0,
                         lambda i=iid: self.rag_file_list.set(
@@ -1153,7 +1285,7 @@ class Everything2MDGUI:
                     )
 
                     # Upload
-                    res = self.ragflow_client.upload_document(kb_id, f_obj["path"])
+                    res = self.ragflow_client.upload_document(kb_id, local_path)
 
                     # Extract doc_ids and trigger parsing
                     doc_ids = []

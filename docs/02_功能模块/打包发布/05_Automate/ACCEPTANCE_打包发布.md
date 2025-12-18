@@ -1,15 +1,14 @@
 # ACCEPTANCE_打包发布
 
-## 1. 执行记录
-- **时间**: 2025-12-16
-- **版本**: 基于当前 HEAD
-- **工具**: PyInstaller
+## 1. 任务执行记录
+-   **Task 1 (实现打包脚本)**: 完成。脚本位于 `scripts/package_release.py`。
+-   **Task 2 (执行打包)**: 完成。
+    -   PyInstaller 构建成功。
+    -   7z 压缩成功。
+    -   产物路径: `release/Everything2MD_20251218.7z`。
 
-## 2. 变更内容
-- 更新了 `Everything2MD.spec`，添加了 `hiddenimports=['pptx2md', 'pptx2md.entry', 'pptx2md.types', ...]`。
-- 重新构建了 `dist/Everything2MD.exe`。
-
-## 3. 结果验证
-- 构建过程无错误。
-- EXE 文件大小约 75MB。
-- 包含了最新的 PPTX 修复逻辑。
+## 2. 验收测试结果
+-   [x] 脚本运行无报错。
+-   [x] `dist/Everything2MD.exe` 存在。
+-   [x] `release/` 目录包含 7z 文件。
+-   [x] 7z 文件解压后包含 exe 和 README。

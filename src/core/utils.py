@@ -6,6 +6,7 @@ import platform
 import subprocess
 import winreg
 from pathlib import Path
+import hashlib
 from .logger import LogManager
 
 try:
@@ -19,6 +20,38 @@ except ImportError:
 
 # Get logger from LogManager
 logger = LogManager.get_logger("core.utils")
+
+
+import re
+
+def calculate_file_hash(filepath: str, length: int = 8) -> str:
+    """
+    Calculate MD5 hash of a file and return the first `length` characters.
+    """
+    try:
+        md5 = hashlib.md5()
+        with open(filepath, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                md5.update(chunk)
+        return md5.hexdigest()[:length]
+    except Exception as e:
+        logger.error(f"Failed to calculate hash for {filepath}: {e}")
+        return ""
+
+
+def parse_versioned_filename(filename: str):
+    """
+    Parse filename to extract basename and hash.
+    Pattern: {basename}_v{hash}.{ext}
+    Returns: (basename_with_ext, hash) or (filename, "")
+    Example: 
+        "doc_v12345678.pdf" -> ("doc.pdf", "12345678")
+        "simple.txt" -> ("simple.txt", "")
+    """
+    match = re.search(r"^(.*)_v([a-f0-9]{8})\.(\w+)$", filename)
+    if match:
+        return match.group(1) + "." + match.group(3), match.group(2)
+    return filename, ""
 
 
 def setup_gui_logging(callback):

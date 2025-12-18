@@ -7,8 +7,12 @@
     - 说明：当前测试使用 Mock 模拟了 LibreOffice 和 Pandoc，建议在 CI 流水线中安装真实工具进行端到端测试。
     - 优先级：中
 
-- [ ] **测试覆盖率提升**
-    - 说明：目前覆盖了核心路径，建议对 `src/core/engine.py` 和 `src/gui` 模块补充更多测试用例。
+- [ ] **测试覆盖率提升 (Engine & Utils)**
+    - 说明：GUI 和 Converters 覆盖率已达标，但 `src/core/engine.py` (0%) 和 `src/core/utils.py` (25%) 覆盖率仍然较低，建议补充。
+    - 优先级：低
+
+- [ ] **图片识别真实测试**
+    - 说明：当前图片识别测试依赖 Mock API 响应，建议添加少量真实图片和 OCR 服务调用测试（需配置真实 API Key）。
     - 优先级：低
 
 - [ ] **依赖版本锁定**
@@ -23,10 +27,10 @@
   ```bash
   # 激活虚拟环境
   .\venv\Scripts\activate
-  # 运行所有测试
-  python -m pytest tests
+  # 运行所有测试并查看覆盖率
+  python -m pytest tests/ --cov=src --cov-report=term-missing
   # 运行特定测试文件
-  python -m pytest tests/test_ragflow_client.py
+  python -m pytest tests/test_gui_main.py
   ```
 - **代码格式化**:
   ```bash

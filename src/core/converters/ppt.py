@@ -2,6 +2,7 @@ import subprocess
 import tempfile
 import shutil
 import os
+import sys
 from pathlib import Path
 from ..utils import get_soffice_path, get_pandoc_path, log_info, log_warn, log_error
 from .base import BaseConverter
@@ -64,6 +65,24 @@ class PptConverter(BaseConverter):
 
         # PPT 处理流程 (或 PPTX 降级)
         return self._convert_ppt(input_path, output_path, context)
+
+    def _get_pptx2md_executable(self):
+        """Find the pptx2md executable path"""
+        # 1. Try finding in current python environment's Scripts (Windows) or bin (Linux)
+        if os.name == 'nt':
+            candidate = Path(sys.prefix) / "Scripts" / "pptx2md.exe"
+        else:
+            candidate = Path(sys.prefix) / "bin" / "pptx2md"
+            
+        if candidate.exists():
+            return str(candidate)
+            
+        # 2. Fallback to PATH lookup
+        path_exe = shutil.which("pptx2md")
+        if path_exe:
+            return path_exe
+            
+        return "pptx2md" # Last resort
 
     def _convert_pptx(self, input_path, output_path, context=None):
         # 尝试 import pptx2md
@@ -129,9 +148,12 @@ class PptConverter(BaseConverter):
         except Exception as e:
             # 如果库调用失败，尝试回退到 subprocess
             log_warn(f"pptx2md 库调用失败: {e}，尝试命令行回退...")
-            cmd = ["pptx2md", str(input_path), "-o", str(output_path)]
+            
+            executable = self._get_pptx2md_executable()
+            cmd = [executable, str(input_path), "-o", str(output_path)]
             img_dir = output_path.parent / "img"
             cmd.extend(["-i", str(img_dir)])
+            
             self._run_subprocess(cmd, context=context, check=True, capture_output=True)
 
     def _convert_ppt(

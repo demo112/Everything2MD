@@ -1,10 +1,13 @@
 # APPROVAL_CHECKLIST
 
-- [x] **Spec 文件更新**: 已添加 `pptx2md` 及其子模块。
-- [x] **环境清理**: 已删除旧的 build/dist。
-- [x] **构建成功**: PyInstaller 成功退出。
-- [x] **文件检查**: `dist/Everything2MD.exe` 存在。
+## 1. 检查清单
+-   [x] **Align**: 确认需求为生成 EXE 和 7z 包，使用 PyInstaller 和 py7zr。
+-   [x] **Architect**: 设计了 `scripts/package_release.py` 脚本自动化流程。
+-   [x] **Atomize**: 拆分为脚本实现和执行验证两个任务。
 
-## 待验证
-- [ ] 启动 EXE 是否正常（需人工运行）。
-- [ ] 拖拽文件是否正常。
+## 2. 风险确认
+-   需确保网络能安装 `py7zr`。
+-   打包过程较慢，需等待。
+
+## 3. 结论
+-   [x] 批准执行。

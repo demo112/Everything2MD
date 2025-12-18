@@ -34,3 +34,16 @@
 ### Task 4: 整体回归测试
 - **动作**: 运行 `pytest`
 - **验收标准**: 所有新旧测试用例全部通过。
+
+### 3.4 (新增) GUI 模块测试
+- **任务目标**: 验证 `src/gui/main.py` 的核心交互逻辑。
+- **输入**: Mock 的 Tkinter 上下文。
+- **输出**: `tests/test_gui_main.py`。
+- **测试点**:
+    - `test_init`: 验证 GUI 初始化及配置加载。
+    - `test_browse_input`: 验证文件选择对话框逻辑。
+    - `test_start_conversion`: 验证“开始转换”按钮正确调用 Engine。
+    - `test_connect_rag`: 验证 RAGFlow 连接逻辑及下拉框更新。
+    - `test_log_queue`: 验证日志队列处理逻辑。
+
+## 4. 任务依赖图
