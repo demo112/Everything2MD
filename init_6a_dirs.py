@@ -6,7 +6,7 @@ dirs = [
     "docs/FullProjectAutoTest/03_Atomize",
     "docs/FullProjectAutoTest/04_Approve",
     "docs/FullProjectAutoTest/05_Automate",
-    "docs/FullProjectAutoTest/06_Assess"
+    "docs/FullProjectAutoTest/06_Assess",
 ]
 
 for d in dirs:

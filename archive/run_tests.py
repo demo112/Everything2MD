@@ -4,10 +4,24 @@ import sys
 import subprocess
 import os
 
+
 def install_dependencies():
     """Install test dependencies"""
     print("Installing dependencies...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "pytest", "pytest-cov", "pytest-mock", "pytest-asyncio", "httpx"])
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "pytest",
+            "pytest-cov",
+            "pytest-mock",
+            "pytest-asyncio",
+            "httpx",
+        ]
+    )
+
 
 def run_tests():
     """Run pytest"""
@@ -17,10 +31,11 @@ def run_tests():
         "--cov=src",
         "--cov-report=term-missing",
         "--cov-report=html:coverage_report",
-        "test/"
+        "test/",
     ]
     ret = pytest.main(args)
     return ret
+
 
 if __name__ == "__main__":
     # Check if we need to install deps (simple check)
@@ -29,5 +44,5 @@ if __name__ == "__main__":
         import pytest_mock
     except ImportError:
         install_dependencies()
-        
+
     sys.exit(run_tests())

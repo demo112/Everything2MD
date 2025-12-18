@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 from src.core.engine import ConversionEngine, CancellationContext
 from src.core.config import ConfigManager
 
+
 class TestCancellation(unittest.TestCase):
     def setUp(self):
         self.config = MagicMock(spec=ConfigManager)
@@ -18,15 +19,15 @@ class TestCancellation(unittest.TestCase):
         ctx = CancellationContext()
         mock_proc = MagicMock()
         mock_proc.pid = 12345
-        
+
         ctx.set_process(mock_proc)
         self.assertEqual(ctx.process, mock_proc)
-        
+
         # Mock subprocess.run for taskkill
-        with patch('subprocess.run') as mock_run:
+        with patch("subprocess.run") as mock_run:
             ctx.abort()
             # Should call taskkill on Windows
-            if os.name == 'nt':
+            if os.name == "nt":
                 mock_run.assert_called()
                 args = mock_run.call_args[0][0]
                 self.assertIn("taskkill", args)
@@ -35,5 +36,6 @@ class TestCancellation(unittest.TestCase):
                 # Non-windows logic (if any)
                 pass
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -4,12 +4,12 @@ Everything2MD 是一个强大的文档转换工具，可以将各种格式的文
 
 ## 功能特性
 
-- 支持多种文档格式转换为 Markdown
-- 批量处理模式，可一次处理整个目录
-- 模块化设计，易于扩展和维护
-- 配置文件支持，可自定义转换参数
-- 详细的日志记录和错误处理机制
-- 提供源码运行与 Docker 运行方式（推荐 Docker）
+-   支持多种文档格式转换为 Markdown
+-   批量处理模式，可一次处理整个目录
+-   模块化设计，易于扩展和维护
+-   配置文件支持，可自定义转换参数
+-   详细的日志记录和错误处理机制
+-   提供源码运行与 Docker 运行方式（推荐 Docker）
 
 ## 核心原则
 
@@ -17,18 +17,18 @@ Everything2MD 是一个强大的文档转换工具，可以将各种格式的文
 
 ## 支持的文件格式
 
-- Microsoft Word: `.doc`, `.docx`
-- Microsoft Excel: `.xls`, `.xlsx`
-- Microsoft PowerPoint: `.ppt`, `.pptx`
-- 文本文件: `.txt`
-- 其他文本格式: `.md`, `.markdown`
+-   Microsoft Word: `.doc`, `.docx`
+-   Microsoft Excel: `.xls`, `.xlsx`
+-   Microsoft PowerPoint: `.ppt`, `.pptx`
+-   文本文件: `.txt`
+-   其他文本格式: `.md`, `.markdown`
 
 ## 环境依赖
 
-- Bash 4.0 或更高版本（推荐使用最新版本以获得最佳兼容性）
-- LibreOffice (用于 Office 文档转换)
-- Pandoc (用于格式转换优化)
-- pptx2md (用于 PowerPoint 文档转换)
+-   Bash 4.0 或更高版本（推荐使用最新版本以获得最佳兼容性）
+-   LibreOffice (用于 Office 文档转换)
+-   Pandoc (用于格式转换优化)
+-   pptx2md (用于 PowerPoint 文档转换)
 
 ## 安装说明
 
@@ -36,54 +36,59 @@ Everything2MD 是一个强大的文档转换工具，可以将各种格式的文
 
 无需配置 Python 或 Bash 环境，直接运行打包好的 EXE 文件。
 
-1. **获取程序**: 位于 `dist/Everything2MD.exe`。
-2. **依赖准备**: 
-   - 需安装 [LibreOffice](https://www.libreoffice.org/) 以支持 Office 文档转换。
-   - 程序会自动探测 LibreOffice 路径，或在界面中手动指定。
+1.  **获取程序**: 位于 `dist/Everything2MD.exe`。
+2.  **依赖准备**:
+    -   需安装 [LibreOffice](https://www.libreoffice.org/) 以支持 Office 文档转换。
+    -   程序会自动探测 LibreOffice 路径，或在界面中手动指定。
 
 ### 源码运行（开发用途）
 
-1. 确保系统已安装 Bash 4.0 或更高版本：
-   ```bash
-   # 检查 Bash 版本
-   bash --version
-   
-   # macOS (使用 Homebrew 升级 Bash)
-   brew install bash
-   
-   # Ubuntu/Debian (升级 Bash)
-   sudo apt-get update
-   sudo apt-get install bash
-   ```
-2. 安装必要的依赖工具：
-   ```bash
-   # macOS (使用 Homebrew)
-   brew install libreoffice pandoc
-   
-   # Ubuntu/Debian
-   sudo apt-get install libreoffice pandoc
-   
-   # 安装 pptx2md
-   pip install pptx2md
-   ```
-3. 克隆或下载本项目代码
+1.  确保系统已安装 Bash 4.0 或更高版本：
+
+    ``` bash
+    # 检查 Bash 版本
+    bash --version
+
+    # macOS (使用 Homebrew 升级 Bash)
+    brew install bash
+
+    # Ubuntu/Debian (升级 Bash)
+    sudo apt-get update
+    sudo apt-get install bash
+    ```
+
+2.  安装必要的依赖工具：
+
+    ``` bash
+    # macOS (使用 Homebrew)
+    brew install libreoffice pandoc
+
+    # Ubuntu/Debian
+    sudo apt-get install libreoffice pandoc
+
+    # 安装 pptx2md
+    pip install pptx2md
+    ```
+
+3.  克隆或下载本项目代码
 
 ## 贡献与规范
 
 我们欢迎社区贡献！在提交代码前，请务必阅读我们的 [版本管理与贡献规范](docs/rules/VERSIONING.md)。
 
-- **版本策略**: 遵循 Semantic Versioning 2.0.0。
-- **提交规范**: 遵循 Conventional Commits。
-- **变更日志**: 查看 [CHANGELOG.md](CHANGELOG.md) 了解最新变动。
+-   **版本策略**: 遵循 Semantic Versioning 2.0.0。
+-   **提交规范**: 遵循 Conventional Commits。
+-   **变更日志**: 查看 [CHANGELOG.md](CHANGELOG.md) 了解最新变动。
 
 ## 开发与测试
 
 本项目包含 Python 接口/单元测试和 Shell 脚本集成测试。
 
 ### 运行测试 (Windows)
+
 使用 PowerShell 运行测试脚本：
 
-```powershell
+``` powershell
 # 运行所有测试
 .\scripts\run_tests.ps1
 
@@ -95,9 +100,10 @@ Everything2MD 是一个强大的文档转换工具，可以将各种格式的文
 ```
 
 ### 运行测试 (Linux/macOS)
+
 使用 Make 命令：
 
-```bash
+``` bash
 make test
 ```
 
@@ -107,7 +113,7 @@ make test
 
 本项目提供 `docker-compose.yml` 以简化部署与运行。
 
-```bash
+``` bash
 # 1. 启动服务（后台运行）
 docker compose up -d
 
@@ -123,14 +129,14 @@ docker compose down
 当代码、功能或配置发生变更后，请遵循以下步骤制作并在 Docker 中运行最新的镜像：
 
 #### 1. 代码或配置变更
-如果仅修改了 `src/` 或 `web/` 下的代码，或 `config/` 下的配置文件：
-- 大多数情况下，如果是开发模式（挂载了卷），代码变更会即时生效（取决于是否开启热重载）。
-- 如果需要重新打包镜像发布，请执行构建命令。
+
+如果仅修改了 `src/` 或 `web/` 下的代码，或 `config/` 下的配置文件： - 大多数情况下，如果是开发模式（挂载了卷），代码变更会即时生效（取决于是否开启热重载）。 - 如果需要重新打包镜像发布，请执行构建命令。
 
 #### 2. 依赖或 Dockerfile 变更
+
 如果修改了 `requirements.txt`、`Dockerfile` 或需要强制更新环境：
 
-```bash
+``` bash
 # 1. 重新构建镜像
 # Docker 会自动检测变化。如果修改了 Dockerfile 或 requirements.txt，会自动重装依赖。
 # 如果只修改了代码，Docker 会利用缓存加速构建。
@@ -146,12 +152,13 @@ docker compose up -d --build --force-recreate
 ```
 
 #### 3. 验证更新
-- 查看容器日志：`docker compose logs -f`
-- 进入容器检查：`docker compose exec everything2md bash`
+
+-   查看容器日志：`docker compose logs -f`
+-   进入容器检查：`docker compose exec everything2md bash`
 
 ### 源码运行
 
-```bash
+``` bash
 # 转换单个文件
 ./src/main.sh -i input.docx -o output.md
 
@@ -161,30 +168,30 @@ docker compose up -d --build --force-recreate
 
 ### 图形界面（GUI）入口
 
-- 桌面版 GUI 位于 `src/gui/main.py`，提供文件选择、参数配置、进度与日志显示。
-- 历史版本文件（如 `fixed_main.py`）已被归档至 `archive/` 目录。
+-   桌面版 GUI 位于 `src/gui/main.py`，提供文件选择、参数配置、进度与日志显示。
+-   历史版本文件（如 `fixed_main.py`）已被归档至 `archive/` 目录。
 
 ### 命令行参数
 
-- `-i, --input PATH`: 输入文件或目录路径
-- `-o, --output PATH`: 输出文件或目录路径
-- `-b, --batch`: 批量处理模式
-- `-c, --config FILE`: 配置文件路径
-- `-l, --log-level LEVEL`: 日志级别 (DEBUG, INFO, WARN, ERROR)
-- `-h, --help`: 显示帮助信息
+-   `-i, --input PATH`: 输入文件或目录路径
+-   `-o, --output PATH`: 输出文件或目录路径
+-   `-b, --batch`: 批量处理模式
+-   `-c, --config FILE`: 配置文件路径
+-   `-l, --log-level LEVEL`: 日志级别 (DEBUG, INFO, WARN, ERROR)
+-   `-h, --help`: 显示帮助信息
 
 ### 配置文件
 
 可以创建配置文件来自定义转换行为：
 
-```ini
+``` ini
 # 日志级别
 log_level=INFO
 ```
 
 ## 项目结构
 
-```
+```         
 Everything2MD/
 ├── src/                     # 源代码目录
 │   ├── core/                # [New] Python 核心逻辑 (去 Shell 化)
@@ -218,13 +225,13 @@ Everything2MD/
 
 ### 添加新的文件格式支持
 
-1. 在 `src/modules/` 目录下创建新的转换模块
-2. 实现文件类型检测逻辑
-3. 在主程序中集成新模块
+1.  在 `src/modules/` 目录下创建新的转换模块
+2.  实现文件类型检测逻辑
+3.  在主程序中集成新模块
 
 ### Docker 构建与测试
 
-```bash
+``` bash
 # 构建镜像
 docker build -t everything2md:latest .
 
@@ -235,10 +242,10 @@ docker run --rm -e TZ=Asia/Shanghai -v "$PWD":/work -w /work everything2md:lates
 
 ### 代码规范
 
-- 使用 Bash 脚本语言
-- 遵循模块化设计原则
-- 添加适当的注释和文档
-- 保持代码风格一致
+-   使用 Bash 脚本语言
+-   遵循模块化设计原则
+-   添加适当的注释和文档
+-   保持代码风格一致
 
 ## 许可证
 

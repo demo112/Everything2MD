@@ -8,30 +8,36 @@ from .config import ConfigManager
 from .converters.office import OfficeConverter
 from .converters.ppt import PptConverter
 from .converters.emmx import EmmxConverter
+from .image_recognition import ImageRecognizer
 from .utils import log_info, log_error, log_warn, split_large_file
+
 
 class CancellationContext:
     def __init__(self):
-        self.process = None # subprocess.Popen object
+        self.process = None  # subprocess.Popen object
         self._lock = threading.Lock()
-        
+
     def set_process(self, proc):
         with self._lock:
             self.process = proc
-            
+
     def abort(self):
         with self._lock:
             if self.process:
                 try:
                     log_info(f"强制终止子进程: {self.process.pid}")
                     # On Windows, use taskkill to kill process tree
-                    if os.name == 'nt':
-                        subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.process.pid)], 
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    if os.name == "nt":
+                        subprocess.run(
+                            ["taskkill", "/F", "/T", "/PID", str(self.process.pid)],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
                     else:
-                        self.process.kill() # Force kill
+                        self.process.kill()  # Force kill
                 except Exception as e:
                     log_warn(f"终止子进程失败: {e}")
+
 
 class ConversionEngine:
     def __init__(self, config_manager: ConfigManager):
@@ -39,25 +45,28 @@ class ConversionEngine:
         self.office_converter = OfficeConverter()
         self.ppt_converter = PptConverter()
         self.emmx_converter = EmmxConverter()
+        self.image_recognizer = ImageRecognizer(config_manager)
         self.stop_flag = False
         self.active_contexts = []
         self._lock = threading.Lock()
 
     def detect_type(self, path: Path):
         suffix = path.suffix.lower()
-        if suffix in ['.docx', '.doc', '.xlsx', '.xls']:
-            return 'office'
-        elif suffix in ['.pptx', '.ppt']:
-            return 'ppt'
-        elif suffix == '.pdf':
-            return 'pdf' # Treated as office in original logic
-        elif suffix == '.txt':
-            return 'text'
-        elif suffix == '.emmx':
-            return 'emmx'
+        if suffix in [".docx", ".doc", ".xlsx", ".xls"]:
+            return "office"
+        elif suffix in [".pptx", ".ppt"]:
+            return "ppt"
+        elif suffix == ".pdf":
+            return "pdf"  # Treated as office in original logic
+        elif suffix == ".txt":
+            return "text"
+        elif suffix == ".emmx":
+            return "emmx"
         return None
 
-    def convert_file(self, input_path: Path, output_path: Path, status_callback=None, context=None):
+    def convert_file(
+        self, input_path: Path, output_path: Path, status_callback=None, context=None
+    ):
         if self.stop_flag:
             return False
 
@@ -82,17 +91,24 @@ class ConversionEngine:
 
         try:
             final_path = output_path
-            if file_type == 'office':
-                final_path = self.office_converter.convert(input_path, output_path, context=context)
-            elif file_type in ['ppt', 'pdf']:
-                final_path = self.ppt_converter.convert(input_path, output_path, context=context)
-            elif file_type == 'text':
+            if file_type == "office":
+                final_path = self.office_converter.convert(
+                    input_path, output_path, context=context
+                )
+            elif file_type in ["ppt", "pdf"]:
+                final_path = self.ppt_converter.convert(
+                    input_path, output_path, context=context
+                )
+            elif file_type == "text":
                 import shutil
+
                 shutil.copy(input_path, output_path)
                 final_path = output_path
-            elif file_type == 'emmx':
-                final_path = self.emmx_converter.convert(input_path, output_path, context=context)
-            
+            elif file_type == "emmx":
+                final_path = self.emmx_converter.convert(
+                    input_path, output_path, context=context
+                )
+
             # Check for splitting
             output_files = [final_path]
             try:
@@ -102,6 +118,19 @@ class ConversionEngine:
             except Exception as e:
                 log_warn(f"Splitting failed: {e}")
                 # output_files remains [final_path]
+
+            # Image Recognition Processing
+            if self.config.get("img_rec_enabled") and output_files:
+                for out_file in output_files:
+                    if (
+                        out_file
+                        and out_file.exists()
+                        and out_file.suffix.lower() == ".md"
+                    ):
+                        try:
+                            self.image_recognizer.process_markdown(out_file)
+                        except Exception as e:
+                            log_warn(f"图片识别失败 {out_file}: {e}")
 
             if status_callback:
                 status_callback(str(input_path), "success", "转换成功")
@@ -128,20 +157,27 @@ class ConversionEngine:
                 if context in self.active_contexts:
                     self.active_contexts.remove(context)
 
-    def run(self, input_path_str, output_path_str, progress_callback=None, file_converted_callback=None, status_callback=None):
+    def run(
+        self,
+        input_path_str,
+        output_path_str,
+        progress_callback=None,
+        file_converted_callback=None,
+        status_callback=None,
+    ):
         self.stop_flag = False
         with self._lock:
             self.active_contexts = []
-            
+
         input_path = Path(input_path_str)
         output_path = Path(output_path_str)
-        
+
         # 获取配置
         max_workers = int(self.config.get("max_parallel_jobs", 2))
-        filters = self.config.get("file_filters", "docx,pptx,pdf,txt").split(',')
+        filters = self.config.get("file_filters", "docx,pptx,pdf,txt").split(",")
         filters = [f.strip().lower() for f in filters if f.strip()]
         # normalize filters (remove leading dot)
-        filters = [f[1:] if f.startswith('.') else f for f in filters]
+        filters = [f[1:] if f.startswith(".") else f for f in filters]
 
         # Determine target suffix based on output_format
         output_format = self.config.get("output_format", "markdown")
@@ -159,10 +195,10 @@ class ConversionEngine:
             # 单文件模式
             # 如果 output_path 是目录，则构造文件名
             if output_path.is_dir() or output_path_str.endswith(os.sep):
-                 output_file = output_path / (input_path.stem + target_suffix)
+                output_file = output_path / (input_path.stem + target_suffix)
             else:
-                 output_file = output_path
-            
+                output_file = output_path
+
             tasks.append((input_path, output_file))
         else:
             # 目录模式 (批量)
@@ -182,12 +218,12 @@ class ConversionEngine:
             return
 
         completed = 0
-        
+
         log_info(f"开始转换，共 {total} 个文件，并行数: {max_workers}")
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_file = {
-                executor.submit(self._run_task, inp, out, status_callback): inp 
+                executor.submit(self._run_task, inp, out, status_callback): inp
                 for inp, out in tasks
             }
 
@@ -195,11 +231,11 @@ class ConversionEngine:
                 if self.stop_flag:
                     executor.shutdown(wait=False, cancel_futures=True)
                     break
-                
+
                 completed += 1
                 if progress_callback:
                     progress_callback(completed, total)
-                
+
                 inp = future_to_file[future]
                 try:
                     result = future.result()
