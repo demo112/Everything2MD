@@ -41,13 +41,28 @@ def mock_tkinter_session():
     # Create the main tkinter mock
     mock_tk = MagicMock()
 
-    def var_side_effect(*args, **kwargs):
-        val = kwargs.get("value", args[0] if args else None)
-        return create_mock_var(val)
+    # Define mock classes for variable types to support isinstance checks
+    class MockVar(MagicMock):
+        def __init__(self, value=None, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._value = value if value is not None else ""
+            self.get = MagicMock(return_value=self._value)
+            self.set = MagicMock(side_effect=self._set_value)
+            # Make sure str(var) works
+            self.__str__ = lambda x: str(self._value)
 
-    mock_tk.StringVar.side_effect = var_side_effect
-    mock_tk.BooleanVar.side_effect = var_side_effect
-    mock_tk.IntVar.side_effect = var_side_effect
+        def _set_value(self, val):
+            self._value = val
+            self.get.return_value = val
+
+    class MockStringVar(MockVar): pass
+    class MockBooleanVar(MockVar): pass
+    class MockIntVar(MockVar): pass
+
+    # Assign classes to the mock module
+    mock_tk.StringVar = MockStringVar
+    mock_tk.BooleanVar = MockBooleanVar
+    mock_tk.IntVar = MockIntVar
 
     # Mock other submodules
     mock_ttk = MagicMock()

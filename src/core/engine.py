@@ -9,6 +9,7 @@ from .converters.office import OfficeConverter
 from .converters.ppt import PptConverter
 from .converters.emmx import EmmxConverter
 from .image_recognition import ImageRecognizer
+from .structure_cleaner import StructureCleaner
 from .utils import log_info, log_error, log_warn, split_large_file
 
 
@@ -46,6 +47,7 @@ class ConversionEngine:
         self.ppt_converter = PptConverter()
         self.emmx_converter = EmmxConverter()
         self.image_recognizer = ImageRecognizer(config_manager)
+        self.structure_cleaner = StructureCleaner(config_manager)
         self.stop_flag = False
         self.active_contexts = []
         self._lock = threading.Lock()

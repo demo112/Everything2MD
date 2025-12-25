@@ -614,94 +614,82 @@ class Everything2MDGUI:
         if path:
             self.pandoc_path.set(path)
 
-    def load_config(self):
-        self.input_path.set(self.config_manager.get("last_input_path", ""))
-        self.output_path.set(self.config_manager.get("last_output_path", ""))
+    def _init_config_bindings(self):
+        """
+        Define bindings between ConfigManager keys and GUI variables.
+        Format: "config_key": (tk_variable, default_value)
+        """
+        self.config_bindings = {
+            "last_input_path": (self.input_path, ""),
+            "last_output_path": (self.output_path, ""),
+            "soffice_path": (self.soffice_path, ""),
+            "pandoc_path": (self.pandoc_path, ""),
+            "log_level": (self.log_level, "INFO"),
+            "output_format": (self.output_format, "markdown"),
+            "batch_processing_enabled": (self.batch_processing, True),
+            "max_parallel_jobs": (self.max_parallel_jobs, "2"),
+            "file_filters": (self.file_filters, "docx,pptx,pdf,txt,emmx"),
+            
+            # RAGFlow
+            "rag_api_base": (self.rag_api_base, "http://localhost:9380"),
+            "rag_api_key": (self.rag_api_key, ""),
+            
+            # Image Recognition
+            "img_rec_enabled": (self.img_rec_enabled, False),
+            "img_rec_api_base": (self.img_rec_api_base, "https://api.openai.com/v1"),
+            "img_rec_api_key": (self.img_rec_api_key, ""),
+            "img_rec_model": (self.img_rec_model, "gpt-4-vision-preview"),
+            "img_rec_concurrency": (self.img_rec_concurrency, "2"),
+            
+            # Structure Cleaning
+            "struct_clean_enabled": (self.struct_clean_enabled, False),
+            "struct_clean_api_base": (self.struct_clean_api_base, "https://api.openai.com/v1"),
+            "struct_clean_api_key": (self.struct_clean_api_key, ""),
+            "struct_clean_model": (self.struct_clean_model, "gpt-4"),
+        }
 
-        # Load or auto-detect Soffice path
-        soffice_path = self.config_manager.get("soffice_path", "")
-        if not soffice_path:
+    def load_config(self):
+        self._init_config_bindings()
+        
+        # Load all bound configurations
+        for key, (var, default) in self.config_bindings.items():
+            # Special handling for booleans stored as strings if necessary, 
+            # but ConfigManager.get handles most conversions now.
+            val = self.config_manager.get(key, default)
+            
+            if isinstance(var, tk.BooleanVar):
+                if isinstance(val, str):
+                    val = val.lower() == "true"
+                var.set(bool(val))
+            else:
+                var.set(str(val) if val is not None else "")
+
+        # Special handling for auto-detection if paths are empty
+        if not self.soffice_path.get():
             try:
                 detected = get_soffice_path()
                 if detected:
-                    soffice_path = detected
-                    log_info(f"Auto-detected LibreOffice: {soffice_path}")
+                    self.soffice_path.set(detected)
+                    log_info(f"Auto-detected LibreOffice: {detected}")
             except Exception as e:
                 log_info(f"Failed to detect LibreOffice: {e}")
-        self.soffice_path.set(soffice_path)
 
-        # Load or auto-detect Pandoc path
-        pandoc_path = self.config_manager.get("pandoc_path", "")
-        if not pandoc_path:
+        if not self.pandoc_path.get():
             try:
                 detected = get_pandoc_path()
                 if detected:
-                    pandoc_path = detected
-                    log_info(f"Auto-detected Pandoc: {pandoc_path}")
+                    self.pandoc_path.set(detected)
+                    log_info(f"Auto-detected Pandoc: {detected}")
             except Exception as e:
                 log_info(f"Failed to detect Pandoc: {e}")
-        self.pandoc_path.set(pandoc_path)
-
-        self.log_level.set(self.config_manager.get("log_level", "INFO"))
-        self.output_format.set(self.config_manager.get("output_format", "markdown"))
-        self.batch_processing.set(
-            self.config_manager.get("batch_processing_enabled", "true") == "true"
-        )
-        self.max_parallel_jobs.set(self.config_manager.get("max_parallel_jobs", "2"))
-        self.file_filters.set(
-            self.config_manager.get("file_filters", "docx,pptx,pdf,txt")
-        )
-
-        # Load RAGFlow config
-        self.rag_api_base.set(
-            self.config_manager.get("rag_api_base", "http://localhost:9380")
-        )
-        self.rag_api_key.set(self.config_manager.get("rag_api_key", ""))
-
-        # Load Image Recognition config
-        self.img_rec_enabled.set(self.config_manager.get("img_rec_enabled", False))
-        self.img_rec_api_base.set(
-            self.config_manager.get("img_rec_api_base", "https://api.openai.com/v1")
-        )
-        self.img_rec_api_key.set(self.config_manager.get("img_rec_api_key", ""))
-        self.img_rec_model.set(
-            self.config_manager.get("img_rec_model", "gpt-4-vision-preview")
-        )
-        self.img_rec_concurrency.set(
-            self.config_manager.get("img_rec_concurrency", "2")
-        )
 
     def save_config(self, show_dialog=True):
-        # Save GUI settings to ConfigManager
-        self.config_manager.set("last_input_path", self.input_path.get())
-        self.config_manager.set("last_output_path", self.output_path.get())
-        self.config_manager.set("soffice_path", self.soffice_path.get())
-        self.config_manager.set("pandoc_path", self.pandoc_path.get())
-
-        self.config_manager.set("log_level", self.log_level.get())
-        self.config_manager.set("output_format", self.output_format.get())
-        self.config_manager.set(
-            "batch_processing_enabled", str(self.batch_processing.get()).lower()
-        )
-        self.config_manager.set("max_parallel_jobs", self.max_parallel_jobs.get())
-        self.config_manager.set("file_filters", self.file_filters.get())
-
-        # Save RAGFlow config
-        self.config_manager.set("rag_api_base", self.rag_api_base.get())
-        self.config_manager.set("rag_api_key", self.rag_api_key.get())
-
-        # Save Image Recognition config
-        self.config_manager.set("img_rec_enabled", self.img_rec_enabled.get())
-        self.config_manager.set("img_rec_api_base", self.img_rec_api_base.get())
-        self.config_manager.set("img_rec_api_key", self.img_rec_api_key.get())
-        self.config_manager.set("img_rec_model", self.img_rec_model.get())
-        self.config_manager.set("img_rec_concurrency", self.img_rec_concurrency.get())
-
-        # Save Structure Cleaning config
-        self.config_manager.set("struct_clean_enabled", self.struct_clean_enabled.get())
-        self.config_manager.set("struct_clean_api_base", self.struct_clean_api_base.get())
-        self.config_manager.set("struct_clean_api_key", self.struct_clean_api_key.get())
-        self.config_manager.set("struct_clean_model", self.struct_clean_model.get())
+        # Save all bound configurations
+        for key, (var, _) in self.config_bindings.items():
+            val = var.get()
+            # Convert boolean to string for some config keys if ConfigManager expects it,
+            # but ConfigManager.set handles conversions now.
+            self.config_manager.set(key, val)
 
         try:
             self.config_manager.save_config()

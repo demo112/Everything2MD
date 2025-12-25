@@ -83,191 +83,102 @@ class ConfigManager:
         with open(self.config_file, "w", encoding="utf-8") as f:
             json.dump(self.config_data, f, indent=2, ensure_ascii=False)
 
+    def _get_config_mapping(self):
+        """
+        Define the mapping between flat keys and nested config dictionary paths.
+        Format: "flat_key": (("path", "to", "section"), "key_name")
+        """
+        return {
+            # Conversion Settings
+            "log_level": (("conversion_settings",), "log_level"),
+            "output_format": (("conversion_settings",), "output_format"),
+            "max_output_file_size_mb": (("conversion_settings",), "max_output_file_size_mb"),
+            
+            # Batch Processing
+            "batch_processing_enabled": (("conversion_settings", "batch_processing"), "enabled"),
+            "max_parallel_jobs": (("conversion_settings", "batch_processing"), "max_parallel_jobs"),
+            "file_filters": (("conversion_settings", "batch_processing"), "file_filters"),
+            
+            # Path Settings
+            "last_input_path": (("path_settings",), "last_input_path"),
+            "last_output_path": (("path_settings",), "last_output_path"),
+            "soffice_path": (("path_settings",), "soffice_path"),
+            "pandoc_path": (("path_settings",), "pandoc_path"),
+            
+            # RAGFlow Settings
+            "rag_api_base": (("ragflow_settings",), "api_base_url"),
+            "rag_api_key": (("ragflow_settings",), "api_key"),
+            
+            # Image Recognition Settings
+            "img_rec_enabled": (("image_recognition",), "enabled"),
+            "img_rec_api_base": (("image_recognition",), "api_base"),
+            "img_rec_api_key": (("image_recognition",), "api_key"),
+            "img_rec_model": (("image_recognition",), "model"),
+            "img_rec_concurrency": (("image_recognition",), "max_concurrency"),
+            "img_rec_context_length": (("image_recognition",), "context_length"),
+            
+            # Structure Cleaning Settings
+            "struct_clean_enabled": (("structure_cleaning",), "enabled"),
+            "struct_clean_api_base": (("structure_cleaning",), "api_base"),
+            "struct_clean_api_key": (("structure_cleaning",), "api_key"),
+            "struct_clean_model": (("structure_cleaning",), "model"),
+        }
+
     def get(self, key, default=None):
-        # Flattened key access for compatibility
-        if key == "log_level":
-            return self.config_data.get("conversion_settings", {}).get(
-                "log_level", default
-            )
-        elif key == "output_format":
-            return self.config_data.get("conversion_settings", {}).get(
-                "output_format", default
-            )
-        elif key == "max_output_file_size_mb":
-            return self.config_data.get("conversion_settings", {}).get(
-                "max_output_file_size_mb", default
-            )
-        elif key == "batch_processing_enabled":
-            val = (
-                self.config_data.get("conversion_settings", {})
-                .get("batch_processing", {})
-                .get("enabled", default)
-            )
-            return str(val).lower()  # Keep consistent with shell script string return
+        mapping = self._get_config_mapping()
+        if key not in mapping:
+            return default
+            
+        path_tuple, field_name = mapping[key]
+        
+        # Navigate to the section
+        current_data = self.config_data
+        for section in path_tuple:
+            current_data = current_data.get(section, {})
+            
+        value = current_data.get(field_name, default)
+        
+        # Type conversions for specific keys to maintain backward compatibility
+        if key == "batch_processing_enabled":
+            return str(value).lower()
         elif key == "max_parallel_jobs":
-            return str(
-                self.config_data.get("conversion_settings", {})
-                .get("batch_processing", {})
-                .get("max_parallel_jobs", default)
-            )
+            return str(value)
         elif key == "file_filters":
-            filters = (
-                self.config_data.get("conversion_settings", {})
-                .get("batch_processing", {})
-                .get("file_filters", default)
-            )
-            if isinstance(filters, list):
-                return ",".join(filters)
-            return filters
-        elif key == "last_input_path":
-            return self.config_data.get("path_settings", {}).get(
-                "last_input_path", default
-            )
-        elif key == "last_output_path":
-            return self.config_data.get("path_settings", {}).get(
-                "last_output_path", default
-            )
-        elif key == "soffice_path":
-            return self.config_data.get("path_settings", {}).get(
-                "soffice_path", default
-            )
-        elif key == "pandoc_path":
-            return self.config_data.get("path_settings", {}).get("pandoc_path", default)
-        elif key == "rag_api_base":
-            return self.config_data.get("ragflow_settings", {}).get(
-                "api_base_url", default
-            )
-        elif key == "rag_api_key":
-            return self.config_data.get("ragflow_settings", {}).get("api_key", default)
-        # Image Recognition Settings
-        elif key == "img_rec_enabled":
-            return self.config_data.get("image_recognition", {}).get("enabled", default)
-        elif key == "img_rec_api_base":
-            return self.config_data.get("image_recognition", {}).get(
-                "api_base", default
-            )
-        elif key == "img_rec_api_key":
-            return self.config_data.get("image_recognition", {}).get("api_key", default)
-        elif key == "img_rec_model":
-            return self.config_data.get("image_recognition", {}).get("model", default)
-        elif key == "img_rec_context_length":
-            return self.config_data.get("image_recognition", {}).get(
-                "context_length", default
-            )
-        # Structure Cleaning Settings
-        elif key == "struct_clean_enabled":
-            return self.config_data.get("structure_cleaning", {}).get(
-                "enabled", default
-            )
-        elif key == "struct_clean_api_base":
-            return self.config_data.get("structure_cleaning", {}).get(
-                "api_base", default
-            )
-        elif key == "struct_clean_api_key":
-            return self.config_data.get("structure_cleaning", {}).get(
-                "api_key", default
-            )
-        elif key == "struct_clean_model":
-            return self.config_data.get("structure_cleaning", {}).get(
-                "model", default
-            )
-        return default
+            if isinstance(value, list):
+                return ",".join(value)
+            return value
+            
+        return value
 
     def set(self, key, value):
-        # Flattened key setter
-        if "conversion_settings" not in self.config_data:
-            self.config_data["conversion_settings"] = {}
-        if "path_settings" not in self.config_data:
-            self.config_data["path_settings"] = {}
-        if "ragflow_settings" not in self.config_data:
-            self.config_data["ragflow_settings"] = {}
-
-        cs = self.config_data["conversion_settings"]
-
-        if key == "log_level":
-            cs["log_level"] = value
-        elif key == "output_format":
-            cs["output_format"] = value
-        elif key == "batch_processing_enabled":
-            if "batch_processing" not in cs:
-                cs["batch_processing"] = {}
-            # Handle boolean/string conversion if needed, but keeping it simple
-            cs["batch_processing"]["enabled"] = value
-        elif key == "max_parallel_jobs":
-            if "batch_processing" not in cs:
-                cs["batch_processing"] = {}
-            cs["batch_processing"]["max_parallel_jobs"] = (
-                int(value) if str(value).isdigit() else 2
-            )
-        elif key == "file_filters":
-            if "batch_processing" not in cs:
-                cs["batch_processing"] = {}
-            # value should be list or comma separated string
+        mapping = self._get_config_mapping()
+        if key not in mapping:
+            # Optionally log warning or ignore
+            return
+            
+        path_tuple, field_name = mapping[key]
+        
+        # Navigate and create sections if needed
+        current_data = self.config_data
+        for section in path_tuple:
+            if section not in current_data:
+                current_data[section] = {}
+            current_data = current_data[section]
+            
+        # Type conversions before saving
+        if key == "batch_processing_enabled":
+            # Handle boolean/string conversion
             if isinstance(value, str):
-                cs["batch_processing"]["file_filters"] = [
-                    x.strip() for x in value.split(",")
-                ]
-            else:
-                cs["batch_processing"]["file_filters"] = value
-        elif key == "last_input_path":
-            self.config_data["path_settings"]["last_input_path"] = value
-        elif key == "last_output_path":
-            self.config_data["path_settings"]["last_output_path"] = value
-        elif key == "soffice_path":
-            self.config_data["path_settings"]["soffice_path"] = value
-        elif key == "pandoc_path":
-            self.config_data["path_settings"]["pandoc_path"] = value
-        elif key == "rag_api_base":
-            self.config_data["ragflow_settings"]["api_base_url"] = value
-        elif key == "rag_api_key":
-            self.config_data["ragflow_settings"]["api_key"] = value
-
-        # Image Recognition Settings
-        elif key == "img_rec_enabled":
-            if "image_recognition" not in self.config_data:
-                self.config_data["image_recognition"] = {}
-            self.config_data["image_recognition"]["enabled"] = value
-        elif key == "img_rec_api_base":
-            if "image_recognition" not in self.config_data:
-                self.config_data["image_recognition"] = {}
-            self.config_data["image_recognition"]["api_base"] = value
-        elif key == "img_rec_api_key":
-            if "image_recognition" not in self.config_data:
-                self.config_data["image_recognition"] = {}
-            self.config_data["image_recognition"]["api_key"] = value
-        elif key == "img_rec_model":
-            if "image_recognition" not in self.config_data:
-                self.config_data["image_recognition"] = {}
-            self.config_data["image_recognition"]["model"] = value
+                value = value.lower() == "true"
+        elif key == "max_parallel_jobs":
+            value = int(value) if str(value).isdigit() else 2
         elif key == "img_rec_concurrency":
-            if "image_recognition" not in self.config_data:
-                self.config_data["image_recognition"] = {}
-            self.config_data["image_recognition"]["max_concurrency"] = (
-                int(value) if str(value).isdigit() else 2
-            )
+             value = int(value) if str(value).isdigit() else 2
         elif key == "img_rec_context_length":
-            if "image_recognition" not in self.config_data:
-                self.config_data["image_recognition"] = {}
-            self.config_data["image_recognition"]["context_length"] = (
-                int(value) if str(value).isdigit() else 500
-            )
-
-        # Structure Cleaning Settings
-        elif key == "struct_clean_enabled":
-            if "structure_cleaning" not in self.config_data:
-                self.config_data["structure_cleaning"] = {}
-            self.config_data["structure_cleaning"]["enabled"] = value
-        elif key == "struct_clean_api_base":
-            if "structure_cleaning" not in self.config_data:
-                self.config_data["structure_cleaning"] = {}
-            self.config_data["structure_cleaning"]["api_base"] = value
-        elif key == "struct_clean_api_key":
-            if "structure_cleaning" not in self.config_data:
-                self.config_data["structure_cleaning"] = {}
-            self.config_data["structure_cleaning"]["api_key"] = value
-        elif key == "struct_clean_model":
-            if "structure_cleaning" not in self.config_data:
-                self.config_data["structure_cleaning"] = {}
-            self.config_data["structure_cleaning"]["model"] = value
-
+             value = int(value) if str(value).isdigit() else 500
+        elif key == "file_filters":
+            if isinstance(value, str):
+                value = [x.strip() for x in value.split(",")]
+                
+        current_data[field_name] = value
         self.save_config()

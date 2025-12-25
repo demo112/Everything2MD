@@ -32,7 +32,8 @@ class StructureCleaner:
         text = re.sub(r'\[(.*?)\]\((.*?)\)', r'\1 \2', text)
         
         # 2. Remove Headers markers (e.g. "## ")
-        text = re.sub(r'^#+\s+', '', text, flags=re.MULTILINE)
+        # Allow optional space to handle cases where LLM fixes "#Title" to "# Title"
+        text = re.sub(r'^#+\s*', '', text, flags=re.MULTILINE)
         
         # 3. Remove Bold/Italic/Strike markers (*, _, ~)
         text = re.sub(r'(\*\*|__|\*|_|~~)', '', text)
@@ -42,11 +43,12 @@ class StructureCleaner:
         text = re.sub(r'`', '', text)
         
         # 5. Remove Blockquotes markers
-        text = re.sub(r'^>\s+', '', text, flags=re.MULTILINE)
+        text = re.sub(r'^>\s*', '', text, flags=re.MULTILINE)
         
         # 6. Remove List markers (-, *, +, 1.)
-        text = re.sub(r'^\s*[-*+]\s+', '', text, flags=re.MULTILINE)
-        text = re.sub(r'^\s*\d+\.\s+', '', text, flags=re.MULTILINE)
+        # Allow optional space to handle cases where LLM fixes "-Item" to "- Item"
+        text = re.sub(r'^\s*[-*+]\s*', '', text, flags=re.MULTILINE)
+        text = re.sub(r'^\s*\d+\.\s*', '', text, flags=re.MULTILINE)
         
         # 7. Remove Table delimiters (| and -)
         # Note: We just remove | characters. We also remove lines that are just dashes/pipes (table separators)
@@ -74,8 +76,9 @@ class StructureCleaner:
                 "3. Fix table formatting.\n"
                 "4. Ensure code blocks are properly fenced.\n"
                 "5. CRITICAL: DO NOT CHANGE, ADD, OR REMOVE ANY TEXT CONTENT. DO NOT CHANGE PUNCTUATION.\n"
-                "6. CRITICAL: KEEP ALL IMAGES AND LINKS EXACTLY AS IS.\n"
-                "7. Output ONLY the cleaned Markdown content, no explanations."
+                "6. CRITICAL: Preserve all original text including language-specific punctuation (e.g. Chinese full-width punctuation).\n"
+                "7. CRITICAL: KEEP ALL IMAGES AND LINKS EXACTLY AS IS.\n"
+                "8. Output ONLY the cleaned Markdown content, no explanations."
             )
 
             payload = {
@@ -137,10 +140,18 @@ class StructureCleaner:
             return True
         else:
             log_warn(f"Structure Cleaning REJECTED for {md_path.name}: Content integrity check failed.")
-            # Debug: Write diff to log or separate file?
-            # For now, just warn.
-            # log_warn(f"Original Norm (First 100): {original_norm[:100]}")
-            # log_warn(f"Cleaned Norm (First 100): {cleaned_norm[:100]}")
+            
+            # Debug: Dump normalized content for investigation
+            try:
+                debug_dir = md_path.parent / "debug_cleaning"
+                debug_dir.mkdir(exist_ok=True)
+                (debug_dir / f"{md_path.name}.orig_norm.txt").write_text(original_norm, encoding="utf-8")
+                (debug_dir / f"{md_path.name}.clean_norm.txt").write_text(cleaned_norm, encoding="utf-8")
+                (debug_dir / f"{md_path.name}.cleaned.md").write_text(cleaned_content, encoding="utf-8")
+                log_warn(f"Debug files dumped to {debug_dir}")
+            except Exception as e:
+                log_warn(f"Failed to dump debug files: {e}")
+                
             return False
 
     def clean_markdown(self, md_path: Path):

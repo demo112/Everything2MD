@@ -12,35 +12,36 @@ $UnitTestDir = "$TestDir/unit"
 $IntegrationTestDir = "$TestDir/integration"
 $PythonTestDirs = @("$TestDir/unit", "$TestDir/integration")
 $Bats = "$TestDir/bats/bin/bats"
-$Pytest = "venv/Scripts/pytest"
+$VenvDir = ".venv"
+# Use Join-Path for robust path handling
+$Pytest = Join-Path $VenvDir "Scripts\pytest.exe"
 
-# Check if venv exists
-if (-not (Test-Path "venv")) {
-    Write-Host "Error: Virtual environment 'venv' not found. Please run 'py -3 -m venv venv' and install requirements." -ForegroundColor Red
+# Check if .venv exists
+if (-not (Test-Path $VenvDir)) {
+    Write-Host "Error: Virtual environment '$VenvDir' not found." -ForegroundColor Red
+    Write-Host "Please run 'py -3 -m venv $VenvDir' and install requirements." -ForegroundColor Yellow
     exit 1
 }
 
 function Run-Bats {
     param ($Dirs)
     Write-Host "Running Bats tests in: $Dirs" -ForegroundColor Cyan
-    # Bats is a bash script, so we need to run it via bash if available, or rely on the user having a way to run it.
-    # On Windows, 'bats' file in bin is a shell script. 
-    # Usually requires Git Bash or WSL. 
-    # However, since the user has 'bats' in the repo, let's try to run it via 'bash' if possible, 
-    # or check if there is a windows batch wrapper.
-    # Looking at the file list, there is 'test/bats/bin/bats' which is likely the shell script.
     
-    # Check for git bash
-    $Bash = Get-Command "bash" -ErrorAction SilentlyContinue
-    if ($Bash) {
-        & bash $Bats $Dirs
+    $GitBashPath = "C:\Program Files\Git\bin\bash.exe"
+    if (-not (Test-Path $GitBashPath)) {
+        $GitBashPath = "C:\Program Files (x86)\Git\bin\bash.exe"
+    }
+
+    if (Test-Path $GitBashPath) {
+         & "$GitBashPath" $Bats $Dirs
     } else {
-        Write-Host "Error: 'bash' not found in PATH. Bats tests require Git Bash or WSL." -ForegroundColor Red
-        # Try to find git bash in standard locations
-        $GitBashPath = "C:\Program Files\Git\bin\bash.exe"
-        if (Test-Path $GitBashPath) {
-             & "$GitBashPath" $Bats $Dirs
+        # Fallback to system bash (might be WSL or other)
+        $Bash = Get-Command "bash" -ErrorAction SilentlyContinue
+        if ($Bash) {
+            Write-Host "Git Bash not found in standard locations. Using system bash: $($Bash.Source)" -ForegroundColor Yellow
+            & bash $Bats $Dirs
         } else {
+            Write-Host "Error: 'bash' not found in PATH or standard locations. Bats tests require Git Bash or WSL." -ForegroundColor Red
             exit 1
         }
     }
@@ -48,13 +49,17 @@ function Run-Bats {
 
 function Run-Python {
     Write-Host "Running Python tests..." -ForegroundColor Cyan
+    # Check if pytest exists
+    if (-not (Test-Path $Pytest)) {
+         Write-Host "Error: pytest not found in $Pytest. Please install requirements." -ForegroundColor Red
+         exit 1
+    }
     & $Pytest $PythonTestDirs
 }
 
 function Clean {
     Write-Host "Cleaning up..." -ForegroundColor Cyan
     if (Test-Path "output") { Remove-Item "output" -Recurse -Force }
-    Get-ChildItem -Filter "*.md" | Remove-Item -Force
 }
 
 switch ($Target) {

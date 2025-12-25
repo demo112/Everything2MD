@@ -8,6 +8,11 @@ websockets>=10.0
 
 pptx2md>=2.0.0
 python-pptx>=0.6.18
+python-docx>=0.8.11
 pdfminer.six>=20221105
 pywinauto>=0.6.8
 psutil>=5.9.0
+
+pytest-cov>=4.0.0
+
+pytest-mock>=3.0.0

@@ -85,76 +85,59 @@ class PptConverter(BaseConverter):
         return "pptx2md" # Last resort
 
     def _convert_pptx(self, input_path, output_path, context=None):
-        # 尝试 import pptx2md
-        try:
-            from pptx2md.entry import convert as pptx_convert
-            from pptx2md.types import ConversionConfig
-        except ImportError:
-            # 尝试旧版本或其他兼容性
-            try:
-                # 兼容旧代码逻辑，如果用户环境强制使用了旧版本
-                from pptx2md.parser import Parser
-                from pptx2md.outputter import md_outputter
-                import pptx
-
-                log_info(f"使用旧版 pptx2md 转换: {input_path}")
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                img_dir = output_path.parent / "img"
-                img_dir.mkdir(parents=True, exist_ok=True)
-
-                prs = pptx.Presentation(str(input_path))
-                outputter = md_outputter(
-                    str(output_path), image_dir=str(img_dir), image_page_dir_check=True
-                )
-                parser = Parser(prs, outputter)
-                parser.parse()
-                return
-            except ImportError:
-                raise RuntimeError("pptx2md模块未安装或版本不兼容")
-
+        """
+        Convert PPTX using pptx2md.
+        Prefer subprocess execution to support cancellation and isolation.
+        """
         log_info(f"使用 pptx2md 转换: {input_path}")
+        
+        # Ensure output directories exist
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        img_dir = output_path.parent / "img"
+        img_dir.mkdir(parents=True, exist_ok=True)
 
+        executable = self._get_pptx2md_executable()
+        
+        # Construct command
+        # pptx2md [input] -o [output] -i [img_dir]
+        cmd = [executable, str(input_path), "-o", str(output_path), "-i", str(img_dir)]
+        
         try:
-            # 1. 准备配置
-            # 确保输出目录存在
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            img_dir = output_path.parent / "img"
-            img_dir.mkdir(parents=True, exist_ok=True)
-
-            config = ConversionConfig(
-                pptx_path=input_path,
-                output_path=output_path,
-                image_dir=img_dir,
-                title_path=None,
-                image_width=None,
-                disable_image=False,
-                disable_wmf=False,
-                disable_color=False,
-                disable_escaping=False,
-                disable_notes=False,
-                enable_slides=False,
-                try_multi_column=False,
-                is_wiki=False,
-                is_mdk=False,
-                is_qmd=False,
-                min_block_size=15,
-                page=None,
-                keep_similar_titles=False,
-            )
-
-            # 2. 执行转换
-            pptx_convert(config)
-
-        except Exception as e:
-            # 如果库调用失败，尝试回退到 subprocess
-            log_warn(f"pptx2md 库调用失败: {e}，尝试命令行回退...")
-            
-            executable = self._get_pptx2md_executable()
-            cmd = [executable, str(input_path), "-o", str(output_path)]
-            img_dir = output_path.parent / "img"
-            cmd.extend(["-i", str(img_dir)])
-            
+            # Use subprocess for cancellation support
             self._run_subprocess(cmd, context=context, check=True, capture_output=True)
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            log_warn(f"pptx2md 命令行调用失败: {e}，尝试 Python 库调用作为回退...")
+            
+            # Fallback to library call (blocking, not cancellable)
+            try:
+                from pptx2md.entry import convert as pptx_convert
+                from pptx2md.types import ConversionConfig
+                
+                config = ConversionConfig(
+                    pptx_path=input_path,
+                    output_path=output_path,
+                    image_dir=img_dir,
+                    title_path=None,
+                    image_width=None,
+                    disable_image=False,
+                    disable_wmf=False,
+                    disable_color=False,
+                    disable_escaping=False,
+                    disable_notes=False,
+                    enable_slides=False,
+                    try_multi_column=False,
+                    is_wiki=False,
+                    is_mdk=False,
+                    is_qmd=False,
+                    min_block_size=15,
+                    page=None,
+                    keep_similar_titles=False,
+                )
+                pptx_convert(config)
+            except ImportError:
+                raise RuntimeError("pptx2md模块未安装")
+            except Exception as lib_e:
+                raise RuntimeError(f"pptx2md 转换失败: {lib_e}")
 
     def _convert_ppt(
         self, input_path, output_path, context=None, output_pdf_only=False

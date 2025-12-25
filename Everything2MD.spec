@@ -6,7 +6,10 @@ a = Analysis(
     pathex=['src'],
     binaries=[],
     datas=[('src/filters/clean.lua', 'src/filters')],
-    hiddenimports=['pptx2md', 'pptx2md.parser', 'pptx2md.outputter', 'pptx2md.entry', 'pptx2md.types', 'pptx', 'PIL'],
+    hiddenimports=[
+        'pptx2md', 'pptx2md.parser', 'pptx2md.outputter', 'pptx2md.entry', 'pptx2md.types', 'pptx', 'PIL',
+        'httpx', 'httpcore', 'h11', 'sniffio', 'anyio', 'asyncio'
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
