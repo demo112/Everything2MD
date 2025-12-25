@@ -1,0 +1,4 @@
+# file: /Users/cooperd/UNV_work_path/trae_projects/【发布】Everything2MD/src/core/converters/office.py
+# hypothesis_version: 6.148.8
+
+[511, '*', '*.html', '--convert-to', '--headless', '--lua-filter', '--outdir', '-f', '-o', '-t', '.bmp', '.docx', '.gif', '.jpeg', '.jpg', '.lua', '.pdf', '.png', '.svg', '</div>', '</span>', '<div[^>]*>', '<span[^>]*>', 'PYTHONIOENCODING', 'capture_output', 'check', 'clean.lua', 'filters', 'frozen', 'gfm-raw_html', 'html', 'ignore', 'lua-filter', 'pdf', 'src', 'stderr', 'stdout', 'timeout', 'user_profile', 'utf-8']

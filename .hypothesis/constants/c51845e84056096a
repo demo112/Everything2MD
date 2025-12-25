@@ -1,0 +1,4 @@
+# file: /Users/cooperd/UNV_work_path/trae_projects/【发布】Everything2MD/src/core/image_recognition.py
+# hypothesis_version: 6.148.8
+
+[60.0, 500, 1000, '!\\[(.*?)\\]\\((.*?)\\)', '.docx', '/', '/v1', 'Authorization', 'Content-Type', 'api_base', 'api_key', 'application/json', 'choices', 'concurrency', 'content', 'context_length', 'enabled', 'gpt-4-vision-preview', 'image_url', 'img_rec_api_base', 'img_rec_api_key', 'img_rec_concurrency', 'img_rec_enabled', 'img_rec_model', 'max_tokens', 'message', 'messages', 'model', 'r', 'rb', 'role', 'text', 'type', 'url', 'user', 'utf-8', 'wb']

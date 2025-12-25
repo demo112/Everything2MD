@@ -1,0 +1,4 @@
+# file: /Users/cooperd/UNV_work_path/trae_projects/【发布】Everything2MD/src/core/config.py
+# hypothesis_version: 6.148.8
+
+[100, 500, 600, 800, ',', '.bak', '.config', '1.0', 'INFO', 'api_base', 'api_base_url', 'api_key', 'batch_processing', 'config.json', 'context_length', 'conversion_settings', 'default', 'docx', 'enabled', 'everything2md', 'file_filters', 'gpt-4', 'gpt-4-vision-preview', 'gui_settings', 'image_recognition', 'img_rec_api_base', 'img_rec_api_key', 'img_rec_concurrency', 'img_rec_enabled', 'img_rec_model', 'last_input_path', 'last_output_path', 'log_level', 'markdown', 'max_concurrency', 'max_parallel_jobs', 'model', 'output_format', 'pandoc_path', 'path_settings', 'pdf', 'pptx', 'r', 'rag_api_base', 'rag_api_key', 'ragflow_settings', 'soffice_path', 'struct_clean_api_key', 'struct_clean_enabled', 'struct_clean_model', 'structure_cleaning', 'theme', 'true', 'txt', 'utf-8', 'version', 'w', 'window_height', 'window_width', 'window_x', 'window_y']

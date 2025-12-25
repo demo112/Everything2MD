@@ -1,0 +1,4 @@
+# file: /Users/cooperd/UNV_work_path/trae_projects/【发布】Everything2MD/src/core/converters/ppt.py
+# hypothesis_version: 6.148.8
+
+[120, '*.pdf', '--convert-to', '--headless', '--outdir', '-enc', '-f', '-i', '-layout', '-o', '-t', '.pdf', '.pptx', 'LibreOffice转换PDF超时', 'Scripts', 'UTF-8', 'bin', 'capture_output', 'check', 'img', 'markdown', 'nt', 'pdf', 'pdftotext', 'pptx2md', 'pptx2md.exe', 'pptx2md模块未安装', 'stderr', 'stdout', 'timeout', 'user_profile', 'utf-8', '无可用转换工具，仅输出PDF', '未提取到文本', '未生成PDF文件']

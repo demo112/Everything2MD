@@ -148,3 +148,37 @@ def test_websocket_broadcast():
             # There is no response logic in main.py loop, it just receives.
             # So if no exception, it passes.
             pass
+
+
+def test_convert_api_missing_input():
+    """Test POST /api/convert with missing input path returns 422"""
+    response = client.post("/api/convert", json={})
+    # Pydantic validation should fail for missing required field
+    assert response.status_code == 422
+
+
+def test_convert_api_starts_task():
+    """Test POST /api/convert starts conversion task asynchronously"""
+    with patch("web.backend.main.asyncio.create_task") as mock_create_task:
+        response = client.post(
+            "/api/convert",
+            json={"input_path": "/work/test.docx", "output_path": "/work/output"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "started"
+        assert "message" in data
+        # Verify async task was created
+        mock_create_task.assert_called_once()
+
+
+def test_fs_list_root():
+    """Test /api/fs/list with ROOT path returns mount points"""
+    with patch("os.path.exists", return_value=True), \
+         patch("os.listdir", return_value=["c", "d"]):
+        response = client.get("/api/fs/list?path=ROOT")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["current_path"] == "ROOT"
+        assert data["parent_path"] is None
+        assert "folders" in data

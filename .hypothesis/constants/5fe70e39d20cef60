@@ -1,0 +1,4 @@
+# file: /Users/cooperd/UNV_work_path/trae_projects/【发布】Everything2MD/src/core/structure_cleaner.py
+# hypothesis_version: 6.148.8
+
+[0.1, 120.0, '!\\[(.*?)\\]\\((.*?)\\)', '(\\*\\*|__|\\*|_|~~)', '/', '/v1', 'Authorization', 'Content-Type', '\\1 \\2', '\\[(.*?)\\]\\((.*?)\\)', '\\s+', '^#+\\s*', '^>\\s*', '^[|\\-\\s:]+$', '^\\s*[-*+]\\s*', '^\\s*\\d+\\.\\s*', '`', '```\\w*', 'api_base', 'api_key', 'application/json', 'choices', 'content', 'debug_cleaning', 'enabled', 'gpt-3.5-turbo', 'message', 'messages', 'model', 'role', 'struct_clean_api_key', 'struct_clean_enabled', 'struct_clean_model', 'system', 'temperature', 'user', 'utf-8', '|']

@@ -176,3 +176,91 @@ def test_rag_connect(app):
 
             # We can verify RAG client call
             mock_client.list_datasets.assert_called()
+
+
+def test_window_geometry(app, mock_root):
+    """Test that window geometry is set correctly during initialization."""
+    mock_root.geometry.assert_called_with("700x600")
+
+
+def test_start_conversion_validation_output(app):
+    """Test that start_conversion validates output path."""
+    app.input_path.get.return_value = "C:/in.docx"
+    app.output_path.get.return_value = ""
+    with patch("src.gui.main.messagebox.showerror") as mock_msg:
+        app.start_conversion()
+        mock_msg.assert_called_with("错误", "请选择输出路径")
+
+
+def test_browse_output(app):
+    """Test browse output directory functionality."""
+    with patch("src.gui.main.filedialog.askdirectory", return_value="C:/output"):
+        app.browse_output()
+        app.output_path.set.assert_called_with("C:/output")
+
+
+def test_browse_output_cancel(app):
+    """Test browse output cancel does not change path."""
+    with patch("src.gui.main.filedialog.askdirectory", return_value=""):
+        app.browse_output()
+        app.output_path.set.assert_not_called()
+
+
+def test_cancel_conversion(app):
+    """Test cancel conversion functionality."""
+    app.is_converting = True
+    app.engine.stop = MagicMock()
+    
+    app.cancel_conversion()
+    
+    app.engine.stop.assert_called_once()
+
+
+def test_on_conversion_finished(app):
+    """Test conversion finished callback resets state."""
+    app.is_converting = True
+    
+    app.on_conversion_finished()
+    
+    assert app.is_converting is False
+
+
+def test_save_config(app):
+    """Test save config functionality."""
+    app.config_manager.save_config = MagicMock()
+    
+    with patch("src.gui.main.messagebox.showinfo") as mock_msg:
+        app.save_config(show_dialog=True)
+        
+        app.config_manager.save_config.assert_called_once()
+        mock_msg.assert_called_with("成功", "配置已保存")
+
+
+def test_save_config_error(app):
+    """Test save config error handling."""
+    app.config_manager.save_config = MagicMock(side_effect=Exception("Save failed"))
+    
+    with patch("src.gui.main.messagebox.showerror") as mock_msg:
+        app.save_config(show_dialog=True)
+        
+        mock_msg.assert_called()
+
+
+def test_update_progress(app):
+    """Test progress update callback."""
+    app._update_progress_ui = MagicMock()
+    
+    app.update_progress(5, 10)
+    
+    # update_progress schedules _update_progress_ui via root.after
+    app.root.after.assert_called()
+
+
+def test_update_file_status(app):
+    """Test file status update callback."""
+    app._update_file_status_ui = MagicMock()
+    
+    app.update_file_status("test.docx", "success", "Converted")
+    
+    # update_file_status schedules _update_file_status_ui via root.after
+    app.root.after.assert_called()

@@ -4,6 +4,16 @@ import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
+# Mock winreg for non-Windows platforms (must be done before any imports that use it)
+if sys.platform != 'win32':
+    mock_winreg = MagicMock()
+    mock_winreg.HKEY_LOCAL_MACHINE = 0
+    mock_winreg.KEY_READ = 0
+    mock_winreg.OpenKey = MagicMock(side_effect=FileNotFoundError)
+    mock_winreg.QueryValueEx = MagicMock(return_value=("", 0))
+    mock_winreg.CloseKey = MagicMock()
+    sys.modules['winreg'] = mock_winreg
+
 # Add src to sys.path to support imports like 'from core.utils import ...'
 # This assumes the test folder is at project_root/test
 project_root = Path(__file__).parent.parent

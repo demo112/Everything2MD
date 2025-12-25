@@ -1,0 +1,4 @@
+# file: /Users/cooperd/UNV_work_path/trae_projects/【发布】Everything2MD/src/core/logger.py
+# hypothesis_version: 6.148.8
+
+[1024, '%(message)s', '%Y-%m-%d %H:%M:%S', '******', '=', 'INFO', 'LogManager', 'Uncaught exception:', 'api_key', 'everything2md.log', 'frozen', 'logs', 'password', 'secret', 'token', 'utf-8']

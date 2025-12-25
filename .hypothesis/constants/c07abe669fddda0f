@@ -1,0 +1,4 @@
+# file: /Users/cooperd/UNV_work_path/trae_projects/【发布】Everything2MD/src/core/engine.py
+# hypothesis_version: 6.148.8
+
+[',', '.', '.doc', '.docx', '.emmx', '.html', '.md', '.pdf', '.ppt', '.pptx', '.txt', '.xls', '.xlsx', '/F', '/PID', '/T', 'cancelled', 'docx,pptx,pdf,txt', 'emmx', 'failed', 'file_filters', 'html', 'img_rec_enabled', 'markdown', 'max_parallel_jobs', 'nt', 'office', 'output_format', 'pdf', 'ppt', 'processing', 'skipped', 'struct_clean_enabled', 'success', 'taskkill', 'text', 'txt', '不支持的文件类型', '开始转换', '文件已存在', '正在强制终止所有活动任务...', '没有找到需要转换的文件', '用户取消', '转换成功']

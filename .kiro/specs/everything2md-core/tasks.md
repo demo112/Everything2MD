@@ -26,11 +26,11 @@
     - 实现默认配置生成
     - 实现配置项的 get/set 方法
     - _Requirements: 3.1-3.5_
-  - [x]* 2.2 编写配置管理单元测试
+  - [x] 2.2 编写配置管理单元测试
     - 测试配置加载和保存
     - 测试默认值处理
     - _Requirements: 3.1-3.5_
-  - [x]* 2.3 编写配置往返属性测试
+  - [x] 2.3 编写配置往返属性测试
     - **Property 2: 配置持久化往返一致性**
     - **Validates: Requirements 3.1, 3.5**
 
@@ -54,7 +54,7 @@
   - [x] 3.4 实现 EmmxConverter
     - 实现思维导图格式解析
     - _Requirements: 1.7_
-  - [x]* 3.5 编写转换器单元测试
+  - [x] 3.5 编写转换器单元测试
     - 测试各格式转换
     - 测试降级流程
     - _Requirements: 1.1-1.7_
@@ -71,11 +71,11 @@
     - 实现 stop() 方法
     - 实现子进程终止
     - _Requirements: 11.1-11.3_
-  - [x]* 4.3 编写引擎单元测试
+  - [x] 4.3 编写引擎单元测试
     - 测试文件类型检测
     - 测试批量处理
     - _Requirements: 1.1-1.7, 2.1-2.5_
-  - [x]* 4.4 编写文件类型检测属性测试
+  - [x] 4.4 编写文件类型检测属性测试
     - **Property 1: 文件类型检测一致性**
     - **Validates: Requirements 1.1-1.7**
 
@@ -90,7 +90,7 @@
     - 实现文件输出
     - 实现 GUI 队列输出
     - _Requirements: 10.1-10.5_
-  - [x]* 6.2 编写日志系统测试
+  - [x] 6.2 编写日志系统测试
     - 测试日志级别过滤
     - **Property 6: 日志级别过滤正确性**
     - **Validates: Requirements 10.1**
@@ -101,7 +101,7 @@
     - 保持 Markdown 结构完整性
     - 添加序号后缀
     - _Requirements: 9.1-9.3_
-  - [x]* 7.2 编写分割功能测试
+  - [x] 7.2 编写分割功能测试
     - **Property 7: 大文件分割完整性**
     - **Validates: Requirements 9.1-9.3**
 
@@ -132,7 +132,7 @@
     - 实现开始/取消按钮
     - 实现配置保存
     - _Requirements: 4.4_
-  - [x]* 8.7 编写GUI启动测试
+  - [x] 8.7 编写GUI启动测试
     - 测试窗口创建
     - 测试基本交互
     - _Requirements: 4.1-4.7_
@@ -153,7 +153,7 @@
     - 实现知识库选择
     - 实现批量上传
     - _Requirements: 6.1-6.5_
-  - [x]* 10.3 编写RAGFlow集成测试
+  - [x] 10.3 编写RAGFlow集成测试
     - 测试API调用（需要真实服务）
     - _Requirements: 6.1-6.5_
 
@@ -166,7 +166,7 @@
   - [x] 11.2 实现 GUI 解析增强标签页
     - 实现图片识别配置
     - _Requirements: 7.1-7.5_
-  - [x]* 11.3 编写图片识别测试
+  - [x] 11.3 编写图片识别测试
     - 测试图片扫描
     - 测试API调用（mock）
     - _Requirements: 7.1-7.5_
@@ -206,7 +206,7 @@
     - WS /ws/logs
     - 实时日志广播
     - _Requirements: 5.2_
-  - [x]* 14.6 编写Web API测试
+  - [x] 14.6 编写Web API测试
     - 测试各API端点
     - _Requirements: 5.1-5.5_
 
@@ -236,7 +236,7 @@
     - 配置端口映射
     - 配置卷挂载
     - _Requirements: 12.2_
-  - [x]* 16.3 编写Docker构建测试
+  - [x] 16.3 编写Docker构建测试
     - 测试镜像构建
     - 测试服务启动
     - _Requirements: 12.1-12.4_
@@ -258,7 +258,7 @@
     - pptx2md_converter.sh
     - logger.sh
     - _Requirements: CLI接口_
-  - [x]* 17.3 编写Shell脚本测试
+  - [x] 17.3 编写Shell脚本测试
     - 使用 bats 框架测试
     - _Requirements: CLI接口_
 
