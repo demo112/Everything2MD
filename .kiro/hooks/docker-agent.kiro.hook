@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "name": "Docker Agent",
+  "description": "负责容器化环境的构建与管理。当 Dockerfile、docker-compose.yml 或项目关键文件发生变化时，自动停止并删除现有容器，然后重新构建运行。确保配置国内镜像源、TZ=Asia/Shanghai 时区及 UTF-8 字符集。",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "Dockerfile",
+      "docker-compose.yml",
+      "requirements.txt",
+      "src/**/*.py",
+      "web/**/*.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "检测到项目文件变化，请执行 Docker 容器生命周期管理：\n\n1. **停止并删除现有容器**：运行 `docker-compose down` 停止并删除当前运行的容器\n2. **重新构建镜像**：运行 `docker-compose build --no-cache` 重新构建镜像\n3. **启动新容器**：运行 `docker-compose up -d` 启动新容器\n\n**国内环境配置检查**：\n- 确认 Dockerfile 中已配置国内镜像源（如阿里云、清华源等）\n- 确认已设置 `ENV TZ=Asia/Shanghai`\n- 确认已设置 UTF-8 字符集：`ENV LANG=C.UTF-8` 或 `ENV LC_ALL=C.UTF-8`\n\n如果发现配置缺失，请提醒用户补充相关配置。"
+  }
+}

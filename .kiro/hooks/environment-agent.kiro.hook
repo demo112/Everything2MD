@@ -1,0 +1,22 @@
+{
+  "enabled": true,
+  "name": "环境 Agent",
+  "description": "负责开发环境配置与依赖管理：确保虚拟环境命名为 .venv，Python 执行使用 py -3 或 python -m pip，各环节尽可能使用中文（项目名称、文件夹、文件名、注释等）",
+  "version": "1",
+  "when": {
+    "type": "fileCreated",
+    "patterns": [
+      "*.py",
+      "requirements.txt",
+      "setup.py",
+      "pyproject.toml",
+      "*.sh",
+      "*.bat",
+      "*.ps1"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "请检查新创建的文件是否符合环境 Agent 规则：\n\n## 虚拟环境\n- 所有项目必须构建虚拟环境\n- 虚拟环境必须命名为 `.venv`\n\n## Python 执行\n- 如果新终端里 `python` 不可用，请始终用 `py -3` 执行\n- 使用 `python -m pip` 来安装依赖，这样更稳健\n\n## 中文化\n- 各个环节尽可能使用中文，包括但不限于：\n  - 项目名称\n  - 文件夹名称\n  - 文件名称\n  - 注释等\n\n如发现不符合规范的地方，请提出修改建议。"
+  }
+}

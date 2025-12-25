@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "对话 Agent",
+  "description": "负责对话规范与沟通质量：确保所有对话使用中文，并在每轮对话结束时总结对话内容，包括提出的问题、达成的共识、以及需要进一步探讨的点",
+  "version": "1",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "echo \"请使用中文总结本轮对话：1) 提出的问题 2) 达成的共识 3) 需要进一步探讨的点\""
+  }
+}

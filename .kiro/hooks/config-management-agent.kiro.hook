@@ -1,0 +1,21 @@
+{
+  "enabled": true,
+  "name": "配置管理 Agent",
+  "description": "监控配置文件变更，检查是否存在硬编码数据、验证前后端配置一致性、确保配置持久化。当配置文件被修改时自动触发校验。",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/core/config.py",
+      "web/backend/main.py",
+      "web/frontend/script.js",
+      "*.json",
+      "docker-compose.yml",
+      ".env*"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "配置文件已变更，请执行配置管理检查：\n\n## 参数化要求检查\n1. 检查变更的文件中是否存在硬编码数据（如固定的URL、端口、路径、密钥等）\n2. 如发现硬编码，建议将其提取为配置项\n\n## 配置一致性检查\n1. 检查前端(web/frontend/)和后端(web/backend/, src/core/config.py)的配置项是否一致\n2. 检查配置变更是否需要同步更新其他引用点\n3. 列出所有需要同步更新的文件\n\n## 配置持久化检查\n1. 确认配置项是否正确持久化到配置文件\n2. 检查是否存在临时配置或内存中的临时变量\n3. 验证配置加载和保存逻辑的完整性\n\n请提供检查报告和修复建议。"
+  }
+}

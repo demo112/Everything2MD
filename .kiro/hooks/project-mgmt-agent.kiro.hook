@@ -1,0 +1,28 @@
+{
+  "enabled": true,
+  "name": "项目管理 Agent",
+  "description": "负责项目里程碑、文档同步与6A工作流管理。当6A阶段文档（Align/Architect/Atomize/Approve/Automate/Assess）更新时，自动检查并同步相关文档、缓存、引用，确保不同交付件功能一致，并记录项目遗留问题。",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "docs/**/01_Align/*.md",
+      "docs/**/02_Architect/*.md",
+      "docs/**/03_Atomize/*.md",
+      "docs/**/04_Approve/*.md",
+      "docs/**/05_Automate/*.md",
+      "docs/**/06_Assess/*.md",
+      "docs/**/ALIGNMENT_*.md",
+      "docs/**/CONSENSUS_*.md",
+      "docs/**/DESIGN_*.md",
+      "docs/**/TASK_*.md",
+      "docs/**/ACCEPTANCE_*.md",
+      "docs/**/FINAL_*.md",
+      "docs/**/TODO_*.md"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "检测到6A工作流文档变更，请执行项目管理同步检查：\n\n## 里程碑同步检查\n1. 检查项目里程碑是否需要更新\n2. 确认以下内容是否需要同步：\n   - 相关文档（README.md, PROJECT_RULES.md等）\n   - 缓存文件\n   - 文档间的交叉引用\n   - 不同交付件的功能一致性\n\n## 6A工作流状态同步\n根据变更的文档，判断当前所处阶段并更新状态：\n- 架构阶段 (Architect): DESIGN_*.md\n- 原子任务阶段 (Atomize): TASK_*.md  \n- 审批阶段 (Approve): APPROVAL_*.md\n- 自动化执行阶段 (Automate): ACCEPTANCE_*.md\n- 评估阶段 (Assess): FINAL_*.md, TODO_*.md\n\n## 遗留问题记录\n检查TODO_*.md文件，确保项目遗留问题已正确记录和同步。\n\n请提供同步建议和需要更新的文件列表。"
+  }
+}
